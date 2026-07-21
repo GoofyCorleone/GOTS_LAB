@@ -152,7 +152,7 @@ export function ExperimentWizard() {
       });
 
       // Redirect to experiment details
-      router.push(`/experiments/${experiment.id}`);
+      router.push(`/experiments/detail?id=${experiment.id}`);
     } catch (err: any) {
       console.error("Error submitting experiment:", err);
       wizard.setError(

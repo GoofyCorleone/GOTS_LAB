@@ -65,7 +65,7 @@ export function ExperimentCard({ experiment, variant }: ExperimentCardProps) {
       </CardContent>
 
       <CardFooter>
-        <Link href={`/experiments/${experiment.id}`} className="w-full">
+        <Link href={`/experiments/detail?id=${experiment.id}`} className="w-full">
           <Button className="w-full" variant={variant === "active" ? "default" : "outline"}>
             {variant === "active" ? "Continuar" : "Ver Detalle"}
             <ArrowRight className="h-4 w-4" />

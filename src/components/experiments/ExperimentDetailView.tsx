@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useExperimentDetail } from "@/hooks/useExperimentDetail";
@@ -49,10 +49,15 @@ function formatDate(value: string | null | undefined, withTime = false) {
 }
 
 export function ExperimentDetailView() {
-  const params = useParams<{ id: string }>();
+  const [experimentId, setExperimentId] = useState<string | undefined>(undefined);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    setExperimentId(id ?? undefined);
+  }, []);
 
   const {
     experiment,
@@ -66,7 +71,7 @@ export function ExperimentDetailView() {
     createSession,
     closeSession,
     finishExperiment,
-  } = useExperimentDetail(params?.id);
+  } = useExperimentDetail(experimentId);
 
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [showContinueDialog, setShowContinueDialog] = useState(false);
