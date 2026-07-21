@@ -34,13 +34,14 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <span
-              className={`text-lg sm:text-xl font-bold transition-colors ${
-                isScrolled ? "text-foreground" : "text-white"
-              }`}
-            >
-              GOTS Lab
-            </span>
+            <video
+              src="/videos/logo.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-10 sm:h-12 w-auto"
+            />
           </Link>
 
           {/* Desktop Navigation */}
