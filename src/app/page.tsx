@@ -13,21 +13,26 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/10">
       {/* Hero Section */}
       <section className="pt-20 pb-12 px-4">
-        <div className="container mx-auto text-center max-w-2xl">
-          <div className="flex flex-row items-center justify-center gap-3 sm:gap-4 md:gap-5 flex-wrap mb-6">
+        <div className="container mx-auto text-center">
+          <div className="flex flex-row flex-nowrap items-center justify-center gap-[2vw] mb-6">
             <video
               src="/videos/logo.mp4"
               autoPlay
               loop
               muted
               playsInline
-              className="h-[5.5rem] sm:h-[7rem] md:h-[8.25rem] w-auto"
+              className="w-auto shrink-0"
+              style={{ height: "clamp(2.75rem, 12.8vw, 8.25rem)" }}
             />
-            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-balance text-gold whitespace-nowrap">
+            <h1
+              className="font-bold text-balance whitespace-nowrap text-gold"
+              style={{ fontSize: "clamp(1.5rem, 7vw, 4.5rem)" }}
+            >
               Inventario
             </h1>
           </div>
 
+          <div className="max-w-2xl mx-auto">
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
             Sistema integral de gestión de inventario óptico y trazabilidad de experimentos.
             Mantén orden y claridad sobre quiénes están usando qué elementos ópticos en qué fechas.
@@ -43,6 +48,7 @@ export default function HomePage() {
               quién más está usando (compartido), y en qué fechas y horas. El sistema registra la
               responsabilidad legal y notifica a todos los involucrados.
             </p>
+          </div>
           </div>
         </div>
       </section>
