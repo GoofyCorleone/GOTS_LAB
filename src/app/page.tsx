@@ -14,10 +14,19 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="pt-20 pb-12 px-4">
         <div className="container mx-auto text-center max-w-2xl">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 text-balance">
-            GOTS Lab
-            <span className="text-gold"> Inventario</span>
-          </h1>
+          <div className="flex flex-col items-center gap-4 mb-6">
+            <video
+              src="/videos/logo.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-24 sm:h-32 md:h-40 w-auto"
+            />
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-balance">
+              <span className="text-gold"> Inventario</span>
+            </h1>
+          </div>
 
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
             Sistema integral de gestión de inventario óptico y trazabilidad de experimentos.

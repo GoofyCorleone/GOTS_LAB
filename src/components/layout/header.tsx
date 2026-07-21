@@ -31,7 +31,7 @@ export function Header() {
         isScrolled ? "bg-background/95 backdrop-blur-md shadow-md" : "bg-transparent"
       }`}
     >
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center">
             <video
@@ -40,7 +40,7 @@ export function Header() {
               loop
               muted
               playsInline
-              className="h-10 sm:h-12 w-auto"
+              className="h-14 sm:h-16 md:h-20 w-auto"
             />
           </Link>
 
