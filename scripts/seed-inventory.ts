@@ -97,16 +97,18 @@ function parseCajonesSheet(sheet: ExcelJS.Worksheet): InventoryItem[] {
       const descCell = sheet.getCell(`${config.descCol}${rowNum}`);
 
       const cantidad = cantidadCell.value as number | null;
-      const ref = (refCell.value as string) || null;
-      const desc = (descCell.value as string) || null;
+      const refRaw = refCell.value;
+      const ref = typeof refRaw === 'string' ? refRaw : (refRaw ? String(refRaw) : null);
+      const descRaw = descCell.value;
+      const desc = typeof descRaw === 'string' ? descRaw : (descRaw ? String(descRaw) : null);
 
       // Only add if cantidad is not null/empty
       if (cantidad && cantidad > 0) {
         items.push({
           type: "cajon",
           number: config.number,
-          reference: ref && ref.trim() ? ref : null,
-          name: desc || `Ítem en Cajón #${config.number}`,
+          reference: ref && ref.trim() ? ref.trim() : null,
+          name: desc && desc.trim() ? desc.trim() : `Ítem en Cajón #${config.number}`,
           description: null,
           quantity: cantidad,
         });
@@ -146,16 +148,18 @@ function parseArmariosSheet(sheet: ExcelJS.Worksheet): InventoryItem[] {
       const descCell = sheet.getCell(`${config.descCol}${rowNum}`);
 
       const cantidad = cantidadCell.value as number | null;
-      const ref = (refCell.value as string) || null;
-      const desc = (descCell.value as string) || null;
+      const refRaw = refCell.value;
+      const ref = typeof refRaw === 'string' ? refRaw : (refRaw ? String(refRaw) : null);
+      const descRaw = descCell.value;
+      const desc = typeof descRaw === 'string' ? descRaw : (descRaw ? String(descRaw) : null);
 
       // Only add if cantidad is not null/empty
       if (cantidad && cantidad > 0) {
         items.push({
           type: "armario",
           number: config.number,
-          reference: ref && ref.trim() ? ref : null,
-          name: desc || `Ítem en Armario #${config.number}`,
+          reference: ref && ref.trim() ? ref.trim() : null,
+          name: desc && desc.trim() ? desc.trim() : `Ítem en Armario #${config.number}`,
           description: null,
           quantity: cantidad,
         });

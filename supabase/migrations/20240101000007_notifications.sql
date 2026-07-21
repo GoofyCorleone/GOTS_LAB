@@ -82,7 +82,7 @@ execute function public.notify_access_request();
 
 -- Trigger: notify requester when access is approved/rejected
 create or replace function public.notify_access_resolution()
-returns trigger language plpgsql security defier as $$
+returns trigger language plpgsql security definer as $$
 begin
   if old.status = 'pending' and new.status in ('approved', 'rejected') then
     insert into public.notifications (user_id, type, payload, related_experiment_id)
