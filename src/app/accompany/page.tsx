@@ -86,10 +86,10 @@ export default function AccompanyPage() {
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Hero */}
         <div>
-          <h1 className="text-3xl font-bold mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">
             Solicitar Acceso a Experimento
           </h1>
-          <p className="text-muted-foreground max-w-2xl">
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
             Busca a un miembro del laboratorio para ver sus experimentos en
             curso y solicitar acceso para acompañarlos.
           </p>

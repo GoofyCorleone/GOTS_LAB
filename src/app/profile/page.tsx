@@ -89,10 +89,10 @@ export default function ProfilePage() {
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-4xl mx-auto">
         {/* Profile Header */}
-        <div className="bg-card border border-border rounded-lg p-8 mb-8">
+        <div className="bg-card border border-border rounded-lg p-6 sm:p-8 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Mi Perfil</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">Mi Perfil</h1>
               <p className="text-muted-foreground">{user?.email}</p>
             </div>
             <Button
@@ -108,27 +108,29 @@ export default function ProfilePage() {
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="experiments">Mis Experimentos</TabsTrigger>
-            <TabsTrigger value="notifications">
-              Notificaciones
-              <Bell className="w-4 h-4 ml-2" />
-              {unreadCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="ml-1.5 h-5 min-w-5 px-1 rounded-full text-[10px] leading-none"
-                >
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </Badge>
-              )}
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-8">
+            <TabsTrigger value="experiments" className="text-sm sm:text-base">Mis Experimentos</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-sm sm:text-base">
+              <span className="flex items-center gap-1 justify-center">
+                Notificaciones
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="ml-1 h-5 min-w-5 px-1 rounded-full text-[10px] leading-none"
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Badge>
+                )}
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="settings">Configuración</TabsTrigger>
+            <TabsTrigger value="settings" className="text-sm sm:text-base">Configuración</TabsTrigger>
           </TabsList>
 
           {/* Experiments Tab */}
           <TabsContent value="experiments">
-            <Card className="p-8">
-              <h2 className="text-xl font-bold mb-4">Experimentos Activos</h2>
+            <Card className="p-6 sm:p-8">
+              <h2 className="text-lg sm:text-xl font-bold mb-4">Experimentos Activos</h2>
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <AlertCircle className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
                 <p className="text-muted-foreground mb-4">No tienes experimentos activos</p>
@@ -150,8 +152,8 @@ export default function ProfilePage() {
 
           {/* Notifications Tab */}
           <TabsContent value="notifications">
-            <Card className="p-8">
-              <h2 className="text-xl font-bold mb-4">Notificaciones</h2>
+            <Card className="p-6 sm:p-8">
+              <h2 className="text-lg sm:text-xl font-bold mb-4">Notificaciones</h2>
 
               {notificationsLoading ? (
                 <div className="flex items-center justify-center py-12">
@@ -193,8 +195,8 @@ export default function ProfilePage() {
 
           {/* Settings Tab */}
           <TabsContent value="settings">
-            <Card className="p-8">
-              <h2 className="text-xl font-bold mb-6">Configuración</h2>
+            <Card className="p-6 sm:p-8">
+              <h2 className="text-lg sm:text-xl font-bold mb-6">Configuración</h2>
 
               <div className="space-y-6">
                 <div>

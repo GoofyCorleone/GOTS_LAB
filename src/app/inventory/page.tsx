@@ -34,13 +34,13 @@ export default function InventoryPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-blue-50 dark:from-blue-950 to-transparent py-12 px-4 sm:py-16">
+      <section className="bg-gradient-to-b from-blue-50 dark:from-blue-950 to-transparent py-10 sm:py-12 md:py-16 px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="space-y-2 mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
               Inventario de Equipos Ópticos
             </h1>
-            <p className="text-muted-foreground text-base sm:text-lg">
+            <p className="text-sm sm:text-base md:text-lg text-muted-foreground">
               Explora nuestro catálogo completo de equipos disponibles para tus experimentos
             </p>
           </div>

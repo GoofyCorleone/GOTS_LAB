@@ -14,12 +14,12 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="pt-20 pb-12 px-4">
         <div className="container mx-auto text-center max-w-2xl">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 text-balance">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 text-balance">
             GOTS Lab
             <span className="text-gold"> Inventario</span>
           </h1>
 
-          <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
             Sistema integral de gestión de inventario óptico y trazabilidad de experimentos.
             Mantén orden y claridad sobre quiénes están usando qué elementos ópticos en qué fechas.
           </p>
@@ -39,11 +39,11 @@ export default function HomePage() {
       </section>
 
       {/* Main CTA Section */}
-      <section className="py-12 px-4 bg-primary/5">
+      <section className="py-10 sm:py-12 md:py-16 px-4 bg-primary/5">
         <div className="container mx-auto">
           {isAuthenticated ? (
             <>
-              <h2 className="text-3xl font-bold text-center mb-12">¿Qué quieres hacer?</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">¿Qué quieres hacer?</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
                 {/* New Experiment */}
@@ -103,7 +103,7 @@ export default function HomePage() {
             </>
           ) : (
             <>
-              <h2 className="text-3xl font-bold text-center mb-8">Bienvenido a GOTS Lab</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8">Bienvenido a GOTS Lab</h2>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
                 <Link href="/login" className="flex-1">
@@ -128,9 +128,9 @@ export default function HomePage() {
       </section>
 
       {/* Info Section */}
-      <section className="py-16 px-4">
+      <section className="py-12 sm:py-16 px-4">
         <div className="container mx-auto max-w-2xl">
-          <h2 className="text-2xl font-bold text-center mb-8">Características Principales</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8">Características Principales</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[

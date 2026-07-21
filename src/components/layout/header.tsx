@@ -35,7 +35,7 @@ export function Header() {
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center">
             <span
-              className={`text-xl font-bold transition-colors ${
+              className={`text-lg sm:text-xl font-bold transition-colors ${
                 isScrolled ? "text-foreground" : "text-white"
               }`}
             >

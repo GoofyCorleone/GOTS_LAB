@@ -107,7 +107,19 @@
   .text-gold {
     color: var(--gold);
   }
+  .border-gold {
+    border-color: var(--gold);
+  }
+  .bg-gold {
+    background-color: var(--gold);
+  }
   .hover\:text-gold:hover {
     color: var(--gold);
+  }
+  .hover\:border-gold:hover {
+    border-color: var(--gold);
+  }
+  .hover\:bg-gold:hover {
+    background-color: var(--gold);
   }
 }
