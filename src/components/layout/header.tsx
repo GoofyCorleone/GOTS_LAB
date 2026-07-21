@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu, X, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/accompany/NotificationBell";
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -64,6 +65,14 @@ export function Header() {
             {isAuthenticated ? (
               <>
                 <Link
+                  href="/accompany"
+                  className={`text-sm font-medium transition-colors ${
+                    isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                  }`}
+                >
+                  Acompañar
+                </Link>
+                <Link
                   href="/profile"
                   className={`text-sm font-medium transition-colors ${
                     isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
@@ -71,7 +80,10 @@ export function Header() {
                 >
                   Mi Perfil
                 </Link>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <NotificationBell
+                    className={isScrolled ? "" : "text-white hover:text-white hover:bg-white/10"}
+                  />
                   <span className="text-xs text-muted-foreground">{user?.email}</span>
                   <Button
                     variant="ghost"
@@ -133,6 +145,13 @@ export function Header() {
 
             {isAuthenticated ? (
               <>
+                <Link
+                  href="/accompany"
+                  className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Acompañar
+                </Link>
                 <Link
                   href="/profile"
                   className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
