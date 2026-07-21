@@ -21,7 +21,7 @@ export default function HomePage() {
               loop
               muted
               playsInline
-              className="h-[3rem] sm:h-[3.75rem] md:h-[4.5rem] w-auto"
+              className="h-[5.5rem] sm:h-[7rem] md:h-[8.25rem] w-auto"
             />
             <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-balance text-gold whitespace-nowrap">
               Inventario
