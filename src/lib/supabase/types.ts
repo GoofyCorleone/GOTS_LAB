@@ -231,6 +231,67 @@ export type Database = {
         }
         Update: {}
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type:
+            | "access_request"
+            | "access_approved"
+            | "access_rejected"
+            | "experiment_finished"
+          payload: Record<string, unknown>
+          related_experiment_id: string | null
+          is_read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type:
+            | "access_request"
+            | "access_approved"
+            | "access_rejected"
+            | "experiment_finished"
+          payload: Record<string, unknown>
+          related_experiment_id?: string | null
+          is_read?: boolean
+          created_at?: string
+        }
+        Update: {
+          is_read?: boolean
+          payload?: Record<string, unknown>
+        }
+      }
+      email_log: {
+        Row: {
+          id: string
+          notification_id: string | null
+          to_email: string
+          subject: string
+          template: string
+          status: "queued" | "sent" | "failed"
+          error: string | null
+          sent_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          notification_id?: string | null
+          to_email: string
+          subject: string
+          template: string
+          status: "queued" | "sent" | "failed"
+          error?: string | null
+          sent_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          status?: "queued" | "sent" | "failed"
+          error?: string | null
+          sent_at?: string | null
+        }
+      }
     }
     Views: {}
     Functions: {}
