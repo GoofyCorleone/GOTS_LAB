@@ -14,17 +14,17 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="pt-20 pb-12 px-4">
         <div className="container mx-auto text-center max-w-2xl">
-          <div className="flex flex-row items-center justify-center flex-wrap mb-6">
+          <div className="flex flex-row items-center justify-center gap-3 sm:gap-4 md:gap-5 flex-wrap mb-6">
             <video
               src="/videos/logo.mp4"
               autoPlay
               loop
               muted
               playsInline
-              className="h-16 sm:h-20 md:h-24 w-auto -mr-2 sm:-mr-3"
+              className="h-[3rem] sm:h-[3.75rem] md:h-[4.5rem] w-auto"
             />
-            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-balance whitespace-nowrap">
-              Lab<span className="text-gold"> Inventario</span>
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-balance text-gold whitespace-nowrap">
+              Inventario
             </h1>
           </div>
 
