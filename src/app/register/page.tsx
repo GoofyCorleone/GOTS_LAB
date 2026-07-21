@@ -8,7 +8,21 @@ import { isValidUISEmail, EMAIL_VALIDATION_MESSAGE } from "@/lib/auth/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AlertCircle, CheckCircle } from "lucide-react";
+
+const MEMBER_STATUS_OPTIONS = [
+  { value: "semillero", label: "Miembro del semillero" },
+  { value: "grupo_investigacion", label: "Miembro del grupo de investigación" },
+  { value: "tesista", label: "Tesista" },
+  { value: "profesor", label: "Profesor" },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +31,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [memberStatus, setMemberStatus] = useState("");
+  const [career, setCareer] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -48,10 +64,20 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!memberStatus) {
+      setError("Selecciona tu estado dentro del grupo");
+      return;
+    }
+
+    if (!career.trim()) {
+      setError("La carrera es requerida");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await signUp(email, password, fullName);
+      await signUp(email, password, fullName, memberStatus, career);
       setSuccess(true);
       setTimeout(() => {
         router.push("/login?registered=true");
@@ -129,6 +155,35 @@ export default function RegisterPage() {
                   Dominio válido
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="memberStatus">Estado en el grupo</Label>
+              <Select value={memberStatus} onValueChange={setMemberStatus} disabled={loading}>
+                <SelectTrigger id="memberStatus" className="w-full">
+                  <SelectValue placeholder="Selecciona una opción" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MEMBER_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="career">Carrera</Label>
+              <Input
+                id="career"
+                type="text"
+                placeholder="Ingeniería Física"
+                value={career}
+                onChange={(e) => setCareer(e.target.value)}
+                required
+                disabled={loading}
+              />
             </div>
 
             <div className="space-y-2">

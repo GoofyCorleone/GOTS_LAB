@@ -1,16 +1,40 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccompanyExperiment } from "@/hooks/useAccompanyExperiment";
 import { NotificationCard } from "@/components/accompany/NotificationCard";
+import { ExperimentCard } from "@/components/experiments/ExperimentCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, LogOut, AlertCircle, Loader2 } from "lucide-react";
+import { Bell, LogOut, AlertCircle, FlaskConical, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  getExperimentsByOwner,
+  getActiveItemCounts,
+  getProfile,
+  type Experiment,
+  type ExperimentWithStats,
+  type Profile,
+} from "@/lib/supabase/queries/experiments";
+
+function withCounts(
+  experiments: Experiment[],
+  counts: Map<string, number>
+): ExperimentWithStats[] {
+  return experiments.map((e) => ({ ...e, items_count: counts.get(e.id) || 0 }));
+}
+
+const MEMBER_STATUS_LABELS: Record<string, string> = {
+  semillero: "Miembro del semillero",
+  grupo_investigacion: "Miembro del grupo de investigación",
+  tesista: "Tesista",
+  profesor: "Profesor",
+};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -28,6 +52,13 @@ export default function ProfilePage() {
 
   const [tab, setTab] = useState("experiments");
 
+  const [activeExperiments, setActiveExperiments] = useState<ExperimentWithStats[]>([]);
+  const [finishedExperiments, setFinishedExperiments] = useState<ExperimentWithStats[]>([]);
+  const [experimentsLoading, setExperimentsLoading] = useState(true);
+  const [experimentsError, setExperimentsError] = useState<string | null>(null);
+
+  const [profile, setProfile] = useState<Profile | null>(null);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedTab = params.get("tab");
@@ -39,6 +70,38 @@ export default function ProfilePage() {
       router.push("/login");
     }
   }, [isAuthenticated, loading, router]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const load = async () => {
+      try {
+        setExperimentsLoading(true);
+        setExperimentsError(null);
+        const { active, finished } = await getExperimentsByOwner(user.id);
+        const counts = await getActiveItemCounts([
+          ...active.map((e) => e.id),
+          ...finished.map((e) => e.id),
+        ]);
+        setActiveExperiments(withCounts(active, counts));
+        setFinishedExperiments(withCounts(finished, counts));
+      } catch (err: any) {
+        console.error("Error loading experiments:", err);
+        setExperimentsError(err.message || "No se pudieron cargar los experimentos");
+      } finally {
+        setExperimentsLoading(false);
+      }
+    };
+
+    load();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    getProfile(user.id)
+      .then(setProfile)
+      .catch((err) => console.error("Error loading profile:", err));
+  }, [user]);
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -94,6 +157,18 @@ export default function ProfilePage() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold mb-2">Mi Perfil</h1>
               <p className="text-muted-foreground">{user?.email}</p>
+              {profile && (profile.member_status || profile.career) && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {profile.member_status && (
+                    <Badge variant="outline" className="border-gold text-gold">
+                      {MEMBER_STATUS_LABELS[profile.member_status] || profile.member_status}
+                    </Badge>
+                  )}
+                  {profile.career && (
+                    <Badge variant="outline">{profile.career}</Badge>
+                  )}
+                </div>
+              )}
             </div>
             <Button
               variant="destructive"
@@ -130,22 +205,54 @@ export default function ProfilePage() {
           {/* Experiments Tab */}
           <TabsContent value="experiments">
             <Card className="p-6 sm:p-8">
-              <h2 className="text-lg sm:text-xl font-bold mb-4">Experimentos Activos</h2>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <AlertCircle className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
-                <p className="text-muted-foreground mb-4">No tienes experimentos activos</p>
-                <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-                  Crear nuevo experimento
-                </Button>
+              <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-bold">Experimentos Activos</h2>
+                <Link href="/experiments/new">
+                  <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    Crear nuevo experimento
+                  </Button>
+                </Link>
               </div>
+
+              {experimentsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : experimentsError ? (
+                <p className="text-sm text-red-600 dark:text-red-400">{experimentsError}</p>
+              ) : activeExperiments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <AlertCircle className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
+                  <p className="text-muted-foreground">No tienes experimentos activos</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {activeExperiments.map((experiment) => (
+                    <ExperimentCard key={experiment.id} experiment={experiment} variant="active" />
+                  ))}
+                </div>
+              )}
 
               <div className="mt-8 pt-8 border-t border-border">
                 <h3 className="text-lg font-bold mb-4">Experimentos Finalizados</h3>
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    No hay experimentos finalizados
-                  </p>
-                </div>
+                {experimentsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : finishedExperiments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <FlaskConical className="w-10 h-10 text-muted-foreground mb-3 opacity-50" />
+                    <p className="text-sm text-muted-foreground">
+                      No hay experimentos finalizados
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {finishedExperiments.map((experiment) => (
+                      <ExperimentCard key={experiment.id} experiment={experiment} variant="finished" />
+                    ))}
+                  </div>
+                )}
               </div>
             </Card>
           </TabsContent>
@@ -209,6 +316,18 @@ export default function ProfilePage() {
                     <div>
                       <p className="text-muted-foreground">ID de Usuario</p>
                       <p className="font-mono text-foreground text-xs">{user?.id}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Estado en el grupo</p>
+                      <p className="text-foreground">
+                        {profile?.member_status
+                          ? MEMBER_STATUS_LABELS[profile.member_status] || profile.member_status
+                          : "Sin definir"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Carrera</p>
+                      <p className="text-foreground">{profile?.career || "Sin definir"}</p>
                     </div>
                   </div>
                 </div>

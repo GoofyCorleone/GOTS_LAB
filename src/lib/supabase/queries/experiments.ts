@@ -150,6 +150,26 @@ export async function getAllProfiles() {
 }
 
 /**
+ * Get a single profile by user id
+ */
+export async function getProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching profile:", error);
+    throw new Error(
+      `Failed to fetch profile: ${error.message || "Unknown error"}`
+    );
+  }
+
+  return data as Profile;
+}
+
+/**
  * Get current user's profile
  */
 export async function getCurrentProfile() {
