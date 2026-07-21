@@ -61,6 +61,11 @@ export interface ExperimentsByOwner {
   finished: Experiment[];
 }
 
+/** An experiment enriched with its active item count, for list cards. */
+export interface ExperimentWithStats extends Experiment {
+  items_count: number;
+}
+
 /** A single item to add to an experiment (Phase 4 add-equipment flow). */
 export interface NewExperimentItem {
   inventory_item_id: string;
@@ -995,4 +1000,39 @@ export async function getActiveItemCounts(
     counts.set(row.experiment_id, (counts.get(row.experiment_id) || 0) + 1);
   }
   return counts;
+}
+
+export interface ExperimentItemShareWithProfile {
+  user_id: string;
+  profile?: Profile;
+}
+
+/**
+ * Fetch who each 'compartido' experiment_item is shared with, keyed by
+ * experiment_item_id. getExperimentById does not include this (it only
+ * merges availability), so the Inventario tab fetches it separately.
+ */
+export async function getExperimentItemShares(
+  experimentItemIds: string[]
+): Promise<Map<string, ExperimentItemShareWithProfile[]>> {
+  const ids = [...new Set(experimentItemIds)].filter(Boolean);
+  const map = new Map<string, ExperimentItemShareWithProfile[]>();
+  if (ids.length === 0) return map;
+
+  const { data, error } = await (supabase
+    .from("experiment_item_shares")
+    .select("*, profiles(*)")
+    .in("experiment_item_id", ids) as any);
+
+  if (error) {
+    console.error("Error fetching item shares:", error);
+    return map;
+  }
+
+  for (const row of (data as any[]) || []) {
+    const list = map.get(row.experiment_item_id) || [];
+    list.push({ user_id: row.user_id, profile: row.profiles || undefined });
+    map.set(row.experiment_item_id, list);
+  }
+  return map;
 }
