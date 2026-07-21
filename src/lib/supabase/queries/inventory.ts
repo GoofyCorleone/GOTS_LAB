@@ -13,7 +13,8 @@ export interface LocationWithItems extends Location {
   items_count?: number;
 }
 
-export interface InventoryItemWithAvailability extends InventoryItem {
+export interface InventoryItemWithAvailability
+  extends Omit<InventoryItem, "quantity_reserved"> {
   location?: Location;
   quantity_reserved?: number;
   quantity_available?: number;
@@ -77,9 +78,9 @@ export async function getItemsByLocation(locationId: string) {
   }
 
   // Get availability for all items
-  const { data: availability, error: availabilityError } = await supabase.rpc(
+  const { data: availability, error: availabilityError } = await (supabase.rpc(
     "get_inventory_availability"
-  );
+  ) as any);
 
   if (availabilityError) {
     console.error("Error fetching availability:", availabilityError);
@@ -89,8 +90,8 @@ export async function getItemsByLocation(locationId: string) {
   }
 
   // Merge availability data with items
-  const itemsWithAvailability = items.map((item) => {
-    const avail = availability?.find(
+  const itemsWithAvailability = (items || []).map((item: any) => {
+    const avail = (availability as any[])?.find(
       (a: any) => a.inventory_item_id === item.id
     );
     return {
@@ -143,7 +144,7 @@ export async function searchItems(query: string) {
   }
 
   // Get locations for all items
-  const locationIds = [...new Set(items.map((item) => item.location_id))];
+  const locationIds = [...new Set((items || []).map((item: any) => item.location_id))];
 
   const { data: locations, error: locationsError } = await supabase
     .from("locations")
@@ -155,18 +156,18 @@ export async function searchItems(query: string) {
   }
 
   // Get availability for all items
-  const { data: availability, error: availabilityError } = await supabase.rpc(
+  const { data: availability, error: availabilityError } = await (supabase.rpc(
     "get_inventory_availability"
-  );
+  ) as any);
 
   if (availabilityError) {
     console.error("Error fetching availability:", availabilityError);
   }
 
   // Merge all data
-  const itemsWithDetails = items.map((item) => {
-    const location = locations?.find((l) => l.id === item.location_id);
-    const avail = availability?.find(
+  const itemsWithDetails = (items || []).map((item: any) => {
+    const location = (locations as any[])?.find((l: any) => l.id === item.location_id);
+    const avail = (availability as any[])?.find(
       (a: any) => a.inventory_item_id === item.id
     );
 
@@ -185,11 +186,11 @@ export async function searchItems(query: string) {
  * Get a single item with its availability details
  */
 export async function getItemWithAvailability(itemId: string) {
-  const { data: item, error: itemError } = await supabase
+  const { data: item, error: itemError } = await (supabase
     .from("inventory_items")
     .select("*")
     .eq("id", itemId)
-    .single();
+    .single() as any);
 
   if (itemError) {
     console.error("Error fetching item:", itemError);
@@ -202,7 +203,7 @@ export async function getItemWithAvailability(itemId: string) {
   const { data: location, error: locationError } = await supabase
     .from("locations")
     .select("*")
-    .eq("id", item.location_id)
+    .eq("id", (item as any).location_id)
     .single();
 
   if (locationError && locationError.code !== "PGRST116") {
@@ -210,22 +211,22 @@ export async function getItemWithAvailability(itemId: string) {
   }
 
   // Get availability
-  const { data: availability, error: availabilityError } = await supabase.rpc(
+  const { data: availability, error: availabilityError } = await (supabase.rpc(
     "get_inventory_availability"
-  );
+  ) as any);
 
   if (availabilityError) {
     console.error("Error fetching availability:", availabilityError);
   }
 
-  const avail = availability?.find(
-    (a: any) => a.inventory_item_id === item.id
+  const avail = (availability as any[])?.find(
+    (a: any) => a.inventory_item_id === (item as any).id
   );
 
   return {
     ...item,
     location: location || undefined,
     quantity_reserved: avail?.quantity_reserved || 0,
-    quantity_available: avail?.quantity_available || item.quantity_total,
+    quantity_available: avail?.quantity_available || (item as any).quantity_total,
   } as InventoryItemWithAvailability;
 }

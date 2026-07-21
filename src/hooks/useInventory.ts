@@ -6,7 +6,6 @@ import {
   getItemsByLocation,
   searchItems,
   type InventoryItemWithAvailability,
-  type LocationWithItems,
 } from "@/lib/supabase/queries/inventory";
 import type { Database } from "@/lib/supabase/types";
 
