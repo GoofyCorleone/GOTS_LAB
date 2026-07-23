@@ -202,12 +202,21 @@ async function main() {
     .select("*");
   if (itemsError) throw itemsError;
 
-  // Build lookup by location_id + reference, and location_id + name
+  // Build lookup by location_id + reference, and location_id + name.
+  // byName maps to an array: multiple items can legitimately share the same
+  // name at the same location (e.g. two "Montura lente" rows with different
+  // references) — collapsing them into a single value silently made every
+  // matching Excel row overwrite the same one item and left its sibling(s)
+  // untouched. Each name-fallback match below claims (shifts) one candidate
+  // so later rows fall through to the next unclaimed item with that name.
   const byRef = new Map<string, any>();
-  const byName = new Map<string, any>();
+  const byName = new Map<string, any[]>();
   for (const item of items || []) {
     if (item.reference) byRef.set(`${item.location_id}|${item.reference}`, item);
-    byName.set(`${item.location_id}|${item.name}`, item);
+    const nameKey = `${item.location_id}|${item.name}`;
+    const list = byName.get(nameKey) || [];
+    list.push(item);
+    byName.set(nameKey, list);
   }
 
   let matched = 0;
@@ -230,7 +239,16 @@ async function main() {
     let item = row.reference
       ? byRef.get(`${locationId}|${row.reference}`)
       : undefined;
-    if (!item) item = byName.get(`${locationId}|${row.name}`);
+
+    const nameCandidates = byName.get(`${locationId}|${row.name}`);
+    if (!item) {
+      item = nameCandidates?.shift();
+    } else if (nameCandidates) {
+      // Matched via reference directly — remove it from its name bucket too,
+      // so a later row falling back by name doesn't hand it out again.
+      const idx = nameCandidates.indexOf(item);
+      if (idx !== -1) nameCandidates.splice(idx, 1);
+    }
 
     if (!item) {
       unmatched++;
