@@ -30,9 +30,10 @@ function withCounts(
 }
 
 const MEMBER_STATUS_LABELS: Record<string, string> = {
-  semillero: "Miembro del semillero",
-  grupo_investigacion: "Miembro del grupo de investigación",
+  semillero: "Miembro semillero",
+  grupo: "Miembro grupo",
   tesista: "Tesista",
+  pasante: "Pasante",
   profesor: "Profesor",
 };
 
@@ -326,7 +327,7 @@ export default function ProfilePage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Carrera</p>
+                      <p className="text-muted-foreground">Programa académico</p>
                       <p className="text-foreground">{profile?.career || "Sin definir"}</p>
                     </div>
                   </div>

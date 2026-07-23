@@ -98,6 +98,11 @@ export function InventoryGrid({
                     Ref: {item.reference}
                   </CardDescription>
                 )}
+                {item.category && (
+                  <span className="inline-block mt-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-gold">
+                    {item.category}
+                  </span>
+                )}
               </div>
               {item.quantity_reserved ? (
                 <div className="flex-shrink-0">

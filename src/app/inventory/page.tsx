@@ -12,12 +12,15 @@ export default function InventoryPage() {
     mode,
     items,
     locations,
+    categories,
     selectedLocation,
+    selectedCategory,
     searchQuery,
     loading,
     error,
     setMode,
     setSelectedLocation,
+    setSelectedCategory,
     setSearchQuery,
   } = useInventory();
 
@@ -50,10 +53,13 @@ export default function InventoryPage() {
             <InventorySearch
               mode={mode}
               selectedLocation={selectedLocation}
+              selectedCategory={selectedCategory}
               searchQuery={searchQuery}
               locations={locations}
+              categories={categories}
               onModeChange={setMode}
               onLocationChange={setSelectedLocation}
+              onCategoryChange={setSelectedCategory}
               onSearchChange={setSearchQuery}
             />
           </div>
@@ -82,6 +88,9 @@ export default function InventoryPage() {
                 }
               </span>
             )}
+            {mode === "category" && selectedCategory && (
+              <span>en la categoría "{selectedCategory}"</span>
+            )}
             {mode === "search" && searchQuery && (
               <span>para "{searchQuery}"</span>
             )}
@@ -103,7 +112,7 @@ export default function InventoryPage() {
           onClick={closeModal}
         >
           <Card
-            className="w-full max-w-md max-h-96 overflow-y-auto"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <CardHeader>
@@ -132,6 +141,28 @@ export default function InventoryPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
+              {selectedItem.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selectedItem.image_url}
+                  alt={selectedItem.name}
+                  className="w-full h-48 object-contain rounded-lg bg-white border border-border"
+                />
+              ) : (
+                <div className="w-full h-48 flex items-center justify-center rounded-lg bg-muted/30 border border-border text-sm text-muted-foreground">
+                  Sin imagen disponible
+                </div>
+              )}
+
+              {selectedItem.category && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">
+                    Categoría
+                  </p>
+                  <p className="text-sm">{selectedItem.category}</p>
+                </div>
+              )}
+
               {selectedItem.description && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-1">

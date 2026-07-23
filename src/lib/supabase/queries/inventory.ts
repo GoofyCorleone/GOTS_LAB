@@ -106,6 +106,76 @@ export async function getItemsByLocation(locationId: string) {
 }
 
 /**
+ * Get all distinct, non-null categories in use, sorted alphabetically
+ */
+export async function getCategories() {
+  const { data, error } = await supabase
+    .from("inventory_items")
+    .select("category")
+    .not("category", "is", null);
+
+  if (error) {
+    console.error("Error fetching categories:", error);
+    throw new Error(
+      `Failed to fetch categories: ${error.message || "Unknown error"}`
+    );
+  }
+
+  const unique = [...new Set((data || []).map((row: any) => row.category as string))];
+  return unique.sort((a, b) => a.localeCompare(b, "es"));
+}
+
+/**
+ * Get all inventory items for a specific category
+ */
+export async function getItemsByCategory(category: string) {
+  const { data: items, error: itemsError } = await supabase
+    .from("inventory_items")
+    .select("*")
+    .eq("category", category)
+    .order("name", { ascending: true });
+
+  if (itemsError) {
+    console.error("Error fetching items by category:", itemsError);
+    throw new Error(
+      `Failed to fetch items: ${itemsError.message || "Unknown error"}`
+    );
+  }
+
+  const locationIds = [...new Set((items || []).map((item: any) => item.location_id))];
+
+  const { data: locations, error: locationsError } = await supabase
+    .from("locations")
+    .select("*")
+    .in("id", locationIds);
+
+  if (locationsError) {
+    console.error("Error fetching locations:", locationsError);
+  }
+
+  const { data: availability, error: availabilityError } = await (supabase.rpc(
+    "get_inventory_availability"
+  ) as any);
+
+  if (availabilityError) {
+    console.error("Error fetching availability:", availabilityError);
+  }
+
+  return (items || []).map((item: any) => {
+    const location = (locations as any[])?.find((l: any) => l.id === item.location_id);
+    const avail = (availability as any[])?.find(
+      (a: any) => a.inventory_item_id === item.id
+    );
+    return {
+      ...item,
+      location,
+      quantity_reserved: avail?.quantity_reserved || 0,
+      quantity_available: avail?.quantity_available || item.quantity_total,
+    } as InventoryItemWithAvailability;
+  });
+}
+
+/**
  * Search items by name or reference (full-text search)
  */
 export async function searchItems(query: string) {

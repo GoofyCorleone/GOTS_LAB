@@ -9,20 +9,26 @@ type Location = Database["public"]["Tables"]["locations"]["Row"];
 interface InventorySearchProps {
   mode: SearchMode;
   selectedLocation: string | null;
+  selectedCategory: string | null;
   searchQuery: string;
   locations: Location[];
+  categories: string[];
   onModeChange: (mode: SearchMode) => void;
   onLocationChange: (locationId: string | null) => void;
+  onCategoryChange: (category: string | null) => void;
   onSearchChange: (query: string) => void;
 }
 
 export function InventorySearch({
   mode,
   selectedLocation,
+  selectedCategory,
   searchQuery,
   locations,
+  categories,
   onModeChange,
   onLocationChange,
+  onCategoryChange,
   onSearchChange,
 }: InventorySearchProps) {
   // Group locations by type
@@ -42,6 +48,14 @@ export function InventorySearch({
       onLocationChange(value || null);
     },
     [onLocationChange]
+  );
+
+  const handleCategoryChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      onCategoryChange(value || null);
+    },
+    [onCategoryChange]
   );
 
   const handleSearchChange = useCallback(
@@ -71,6 +85,18 @@ export function InventorySearch({
           <input
             type="radio"
             name="search-mode"
+            value="category"
+            checked={mode === "category"}
+            onChange={() => handleModeChange("category")}
+            className="w-4 h-4 text-blue-600 dark:text-blue-500"
+          />
+          <span className="text-sm font-medium">Por Categoría</span>
+        </label>
+
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="radio"
+            name="search-mode"
             value="search"
             checked={mode === "search"}
             onChange={() => handleModeChange("search")}
@@ -79,6 +105,28 @@ export function InventorySearch({
           <span className="text-sm font-medium">Por Nombre/Referencia</span>
         </label>
       </div>
+
+      {/* Category Selection */}
+      {mode === "category" && (
+        <div className="space-y-2">
+          <label htmlFor="category-select" className="block text-sm font-medium">
+            Selecciona una categoría
+          </label>
+          <select
+            id="category-select"
+            value={selectedCategory || ""}
+            onChange={handleCategoryChange}
+            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">-- Selecciona una categoría --</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Location Selection */}
       {mode === "location" && (

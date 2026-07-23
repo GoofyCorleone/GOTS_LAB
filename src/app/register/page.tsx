@@ -18,9 +18,10 @@ import {
 import { AlertCircle, CheckCircle } from "lucide-react";
 
 const MEMBER_STATUS_OPTIONS = [
-  { value: "semillero", label: "Miembro del semillero" },
-  { value: "grupo_investigacion", label: "Miembro del grupo de investigación" },
+  { value: "semillero", label: "Miembro semillero" },
+  { value: "grupo", label: "Miembro grupo" },
   { value: "tesista", label: "Tesista" },
+  { value: "pasante", label: "Pasante" },
   { value: "profesor", label: "Profesor" },
 ];
 
@@ -65,12 +66,7 @@ export default function RegisterPage() {
     }
 
     if (!memberStatus) {
-      setError("Selecciona tu estado dentro del grupo");
-      return;
-    }
-
-    if (!career.trim()) {
-      setError("La carrera es requerida");
+      setError("Selecciona tu rol dentro del grupo");
       return;
     }
 
@@ -158,10 +154,12 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="memberStatus">Estado en el grupo</Label>
+              <Label htmlFor="memberStatus">
+                Rol <span className="text-destructive">*</span>
+              </Label>
               <Select value={memberStatus} onValueChange={setMemberStatus} disabled={loading}>
                 <SelectTrigger id="memberStatus" className="w-full">
-                  <SelectValue placeholder="Selecciona una opción" />
+                  <SelectValue placeholder="Selecciona tu rol" />
                 </SelectTrigger>
                 <SelectContent>
                   {MEMBER_STATUS_OPTIONS.map((opt) => (
@@ -174,14 +172,13 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="career">Carrera</Label>
+              <Label htmlFor="career">Programa académico</Label>
               <Input
                 id="career"
                 type="text"
                 placeholder="Ingeniería Física"
                 value={career}
                 onChange={(e) => setCareer(e.target.value)}
-                required
                 disabled={loading}
               />
             </div>
