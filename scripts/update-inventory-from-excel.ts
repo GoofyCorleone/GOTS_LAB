@@ -17,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as fs from "fs";
 import * as path from "path";
 import ExcelJS from "exceljs";
+import sharp from "sharp";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -123,17 +124,8 @@ async function parseExcel(): Promise<ParsedRow[]> {
   return rows;
 }
 
-function guessExtension(contentType: string | null, url: string): string {
-  if (contentType) {
-    if (contentType.includes("webp")) return "webp";
-    if (contentType.includes("png")) return "png";
-    if (contentType.includes("jpeg") || contentType.includes("jpg")) return "jpg";
-    if (contentType.includes("gif")) return "gif";
-  }
-  const match = url.match(/\.(webp|png|jpe?g|gif)(\?|$)/i);
-  if (match) return match[1].toLowerCase().replace("jpeg", "jpg");
-  return "jpg";
-}
+const MAX_IMAGE_DIMENSION = 500; // longest side, in px — plenty for grid thumbnails and the detail modal
+const WEBP_QUALITY = 78;
 
 async function downloadAndUpload(
   itemId: string,
@@ -147,19 +139,31 @@ async function downloadAndUpload(
       console.warn(`  ✗ HTTP ${res.status} fetching ${imageUrl}`);
       return null;
     }
-    const contentType = res.headers.get("content-type");
     const buffer = Buffer.from(await res.arrayBuffer());
     if (buffer.length < 200) {
       console.warn(`  ✗ Suspiciously small response (${buffer.length}b) from ${imageUrl}`);
       return null;
     }
-    const ext = guessExtension(contentType, imageUrl);
-    const storagePath = `${itemId}.${ext}`;
+
+    // Always re-encode to a size-capped, compressed WebP — the source
+    // (mostly Thorlabs/Excelitas CDNs) serves images far larger than a
+    // grid thumbnail needs, and this project's static export can't rely
+    // on Next.js image optimization (images.unoptimized: true) to shrink
+    // them at request time.
+    const optimizedBuffer = await sharp(buffer)
+      .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer();
+
+    const storagePath = `${itemId}.webp`;
 
     const { error: uploadError } = await supabase.storage
       .from("inventory-images")
-      .upload(storagePath, buffer, {
-        contentType: contentType || `image/${ext}`,
+      .upload(storagePath, optimizedBuffer, {
+        contentType: "image/webp",
         upsert: true,
       });
 
