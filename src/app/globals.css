@@ -114,6 +114,9 @@
   .bg-gold {
     background-color: var(--gold);
   }
+  .bg-gold-subtle {
+    background-color: color-mix(in oklch, var(--gold) 12%, transparent);
+  }
   .hover\:text-gold:hover {
     color: var(--gold);
   }

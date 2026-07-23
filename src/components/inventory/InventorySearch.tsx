@@ -42,20 +42,18 @@ export function InventorySearch({
     [onModeChange]
   );
 
-  const handleLocationChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const value = e.target.value;
-      onLocationChange(value || null);
+  const handleLocationClick = useCallback(
+    (locationId: string) => {
+      onLocationChange(selectedLocation === locationId ? null : locationId);
     },
-    [onLocationChange]
+    [onLocationChange, selectedLocation]
   );
 
-  const handleCategoryChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const value = e.target.value;
-      onCategoryChange(value || null);
+  const handleCategoryClick = useCallback(
+    (category: string) => {
+      onCategoryChange(selectedCategory === category ? null : category);
     },
-    [onCategoryChange]
+    [onCategoryChange, selectedCategory]
   );
 
   const handleSearchChange = useCallback(
@@ -109,59 +107,81 @@ export function InventorySearch({
       {/* Category Selection */}
       {mode === "category" && (
         <div className="space-y-2">
-          <label htmlFor="category-select" className="block text-sm font-medium">
-            Selecciona una categoría
-          </label>
-          <select
-            id="category-select"
-            value={selectedCategory || ""}
-            onChange={handleCategoryChange}
-            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">-- Selecciona una categoría --</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          <p className="block text-sm font-medium">Selecciona una categoría</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => handleCategoryClick(cat)}
+                  className={`min-h-20 px-4 py-3 rounded-lg border-2 text-sm font-semibold text-center transition-colors flex items-center justify-center ${
+                    isSelected
+                      ? "border-gold bg-gold-subtle text-gold"
+                      : "border-input bg-card hover:border-gold hover:bg-muted/50"
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* Location Selection */}
       {mode === "location" && (
-        <div className="space-y-2">
-          <label htmlFor="location-select" className="block text-sm font-medium">
-            Selecciona una ubicación
-          </label>
-          <select
-            id="location-select"
-            value={selectedLocation || ""}
-            onChange={handleLocationChange}
-            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">-- Selecciona una ubicación --</option>
+        <div className="space-y-6">
+          {cajonesLocations.length > 0 && (
+            <div className="space-y-2">
+              <p className="block text-sm font-medium">Cajones</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {cajonesLocations.map((loc) => {
+                  const isSelected = selectedLocation === loc.id;
+                  return (
+                    <button
+                      key={loc.id}
+                      type="button"
+                      onClick={() => handleLocationClick(loc.id)}
+                      className={`min-h-20 px-4 py-3 rounded-lg border-2 text-sm font-semibold text-center transition-colors flex items-center justify-center ${
+                        isSelected
+                          ? "border-gold bg-gold-subtle text-gold"
+                          : "border-input bg-card hover:border-gold hover:bg-muted/50"
+                      }`}
+                    >
+                      {loc.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-            {cajonesLocations.length > 0 && (
-              <optgroup label="Cajones">
-                {cajonesLocations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.label}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-
-            {armariosLocations.length > 0 && (
-              <optgroup label="Armarios">
-                {armariosLocations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.label}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
+          {armariosLocations.length > 0 && (
+            <div className="space-y-2">
+              <p className="block text-sm font-medium">Armarios</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {armariosLocations.map((loc) => {
+                  const isSelected = selectedLocation === loc.id;
+                  return (
+                    <button
+                      key={loc.id}
+                      type="button"
+                      onClick={() => handleLocationClick(loc.id)}
+                      className={`min-h-20 px-4 py-3 rounded-lg border-2 text-sm font-semibold text-center transition-colors flex items-center justify-center ${
+                        isSelected
+                          ? "border-gold bg-gold-subtle text-gold"
+                          : "border-input bg-card hover:border-gold hover:bg-muted/50"
+                      }`}
+                    >
+                      {loc.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

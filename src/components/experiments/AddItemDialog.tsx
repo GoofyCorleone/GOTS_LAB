@@ -125,10 +125,13 @@ export function AddItemDialog({
             <InventorySearch
               mode={inventory.mode}
               selectedLocation={inventory.selectedLocation}
+              selectedCategory={inventory.selectedCategory}
               searchQuery={inventory.searchQuery}
               locations={inventory.locations}
+              categories={inventory.categories}
               onModeChange={inventory.setMode}
               onLocationChange={inventory.setSelectedLocation}
+              onCategoryChange={inventory.setSelectedCategory}
               onSearchChange={inventory.setSearchQuery}
             />
             <InventoryGrid
