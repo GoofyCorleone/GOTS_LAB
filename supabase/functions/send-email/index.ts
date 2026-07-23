@@ -48,6 +48,15 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -108,11 +117,13 @@ function wrapHtml(title: string, bodyHtml: string): string {
 
 async function buildContent(n: NotificationRecord): Promise<EmailContent> {
   const experimentId = n.related_experiment_id ?? (n.payload?.experiment_id as string) ?? null;
-  const title = await getExperimentTitle(experimentId);
+  const title = escapeHtml(await getExperimentTitle(experimentId));
 
   switch (n.type) {
     case "access_request": {
-      const email = (n.payload?.requester_email as string) ?? "un miembro del laboratorio";
+      const email = escapeHtml(
+        (n.payload?.requester_email as string) ?? "un miembro del laboratorio",
+      );
       return {
         template: "access_request",
         subject: `Nueva solicitud de acceso a "${title}"`,
@@ -154,7 +165,7 @@ async function buildContent(n: NotificationRecord): Promise<EmailContent> {
         ),
       };
     case "experiment_finished": {
-      const t = (n.payload?.title as string) ?? title;
+      const t = escapeHtml((n.payload?.title as string) ?? title);
       return {
         template: "experiment_finished",
         subject: `El experimento "${t}" ha finalizado`,
