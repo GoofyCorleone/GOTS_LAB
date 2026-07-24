@@ -8,6 +8,7 @@ import { useExperimentDetail } from "@/hooks/useExperimentDetail";
 import { useToast } from "@/components/ui/use-toast";
 import { getAllProfiles, type Profile } from "@/lib/supabase/queries/experiments";
 import type { ExperimentItemWithDetails } from "@/lib/supabase/queries/experiments";
+import { createAccessRequest } from "@/lib/supabase/queries/participants";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ import {
   Check,
   X,
   Camera,
+  UserPlus,
 } from "lucide-react";
 
 function formatDate(value: string | null | undefined, withTime = false) {
@@ -92,6 +94,8 @@ export function ExperimentDetailView() {
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [requestingAccess, setRequestingAccess] = useState(false);
+  const [accessRequested, setAccessRequested] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -136,6 +140,30 @@ export function ExperimentDetailView() {
   const canManageSessions = isOwner && !isFinishedOrCancelled;
   const activeItems = experiment.items.filter((it) => it.status === "active");
   const companions = experiment.participants.filter((p) => p.status === "approved");
+  const myParticipation = experiment.participants.find((p) => p.user_id === user?.id);
+  const canRequestAccess =
+    !isOwner && !myParticipation && experiment.status === "in_progress";
+
+  const handleRequestAccess = async () => {
+    if (!user) return;
+    setRequestingAccess(true);
+    try {
+      await createAccessRequest(experiment.id, user.id);
+      setAccessRequested(true);
+      toast({
+        title: "Solicitud enviada",
+        description: `Se notificó a ${experiment.owner?.full_name || "la persona a cargo"}.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo enviar la solicitud",
+        variant: "destructive",
+      });
+    } finally {
+      setRequestingAccess(false);
+    }
+  };
 
   const handleStartEditDescription = () => {
     setDescriptionDraft(experiment.description || "");
@@ -374,12 +402,24 @@ export function ExperimentDetailView() {
         </div>
 
         {!canEditItems && !isFinishedOrCancelled && (
-          <div className="p-4 rounded-lg border bg-muted/50">
+          <div className="p-4 rounded-lg border bg-muted/50 space-y-3">
             <p className="text-sm text-muted-foreground">
               Estás viendo este experimento en modo lectura porque no eres la persona a cargo
-              ni un colaborador aprobado. Puedes ver la información, el inventario en uso y
-              solicitar acompañarlo desde &quot;Acompañar Experimento&quot;.
+              ni un colaborador aprobado. Puedes ver la información y el inventario en uso.
+              {myParticipation?.status === "pending" &&
+                " Ya enviaste una solicitud para acompañarlo; espera a que la persona a cargo la apruebe."}
+              {myParticipation?.status === "rejected" &&
+                " Tu solicitud para acompañarlo fue rechazada."}
             </p>
+            {canRequestAccess && !accessRequested && (
+              <Button
+                onClick={handleRequestAccess}
+                disabled={requestingAccess}
+              >
+                <UserPlus className="h-4 w-4" />
+                {requestingAccess ? "Enviando..." : "Solicitar permiso para acompañar"}
+              </Button>
+            )}
           </div>
         )}
 

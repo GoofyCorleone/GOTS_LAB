@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useExperimentWizard } from "@/hooks/useExperimentWizard";
 import { BasicInfoStep } from "./BasicInfoStep";
@@ -10,6 +10,16 @@ import { DatesStep } from "./DatesStep";
 import { SummaryStep } from "./SummaryStep";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -22,7 +32,10 @@ import {
   createExperimentItemShares,
   createExperimentSession,
   startExperiment,
+  findActiveExperimentByTitle,
+  deleteExperiment,
   type Profile,
+  type Experiment,
 } from "@/lib/supabase/queries/experiments";
 import { searchItems, type InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
 
@@ -36,6 +49,14 @@ export function ExperimentWizard() {
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItemWithAvailability[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
+
+  // Synchronous guard against double-clicks — wizard.submitting is React
+  // state, so a fast second click can land before the re-render that
+  // disables the button. A ref updates immediately.
+  const submittingRef = useRef(false);
+
+  const [duplicateExperiment, setDuplicateExperiment] = useState<Experiment | null>(null);
+  const pendingSessionTimesRef = useRef<{ start: string; end: string } | null>(null);
 
   // Load profiles and inventory items
   useEffect(() => {
@@ -78,24 +99,30 @@ export function ExperimentWizard() {
     }
   }, [authLoading, user, router]);
 
-  const handleSubmit = async (sessionStartTime: string, sessionEndTime: string) => {
+  /** The actual creation sequence. If any step after createExperiment fails,
+   *  best-effort rolls back the just-created experiment so retrying doesn't
+   *  leave an orphaned draft behind. */
+  const performSubmit = async (
+    sessionStartTime: string,
+    sessionEndTime: string,
+    replacingId?: string
+  ) => {
+    if (!currentUser) throw new Error("Usuario no autenticado");
+
+    if (replacingId) {
+      await deleteExperiment(replacingId);
+    }
+
+    // 1. Create experiment in draft status
+    const experiment = await createExperiment({
+      title: wizard.formData.title,
+      owner_id: currentUser.id,
+      description: wizard.formData.description,
+      fecha_inicio: wizard.formData.fecha_inicio,
+      fecha_fin_tentativa: wizard.formData.fecha_fin_tentativa,
+    });
+
     try {
-      wizard.setSubmitting(true);
-      wizard.setError(null);
-
-      if (!currentUser) {
-        throw new Error("Usuario no autenticado");
-      }
-
-      // 1. Create experiment in draft status
-      const experiment = await createExperiment({
-        title: wizard.formData.title,
-        owner_id: wizard.formData.owner_id,
-        description: wizard.formData.description,
-        fecha_inicio: wizard.formData.fecha_inicio,
-        fecha_fin_tentativa: wizard.formData.fecha_fin_tentativa,
-      });
-
       // 2. Create legal acceptance record (IMMUTABLE)
       await createLegalAcceptance({
         experiment_id: experiment.id,
@@ -145,15 +172,48 @@ export function ExperimentWizard() {
 
       // 7. Update experiment status to in_progress
       await startExperiment(experiment.id);
+    } catch (err) {
+      // Best-effort rollback so a failed step doesn't leave a stuck draft.
+      try {
+        await deleteExperiment(experiment.id);
+      } catch (cleanupErr) {
+        console.error("Rollback failed for experiment", experiment.id, cleanupErr);
+      }
+      throw err;
+    }
 
-      // Success toast
-      toast({
-        title: "¡Experimento iniciado!",
-        description: "El experimento ha sido creado y está en progreso",
-      });
+    toast({
+      title: "¡Experimento iniciado!",
+      description: "El experimento ha sido creado y está en progreso",
+    });
 
-      // Redirect to experiment details
-      router.push(`/experiments/detail?id=${experiment.id}`);
+    router.push(`/experiments/detail?id=${experiment.id}`);
+  };
+
+  const handleSubmit = async (sessionStartTime: string, sessionEndTime: string) => {
+    if (submittingRef.current) return;
+
+    try {
+      submittingRef.current = true;
+      wizard.setSubmitting(true);
+      wizard.setError(null);
+
+      if (!currentUser) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      // Same-title, still-open experiment already owned by this user?
+      const existing = await findActiveExperimentByTitle(
+        currentUser.id,
+        wizard.formData.title
+      );
+      if (existing) {
+        pendingSessionTimesRef.current = { start: sessionStartTime, end: sessionEndTime };
+        setDuplicateExperiment(existing);
+        return;
+      }
+
+      await performSubmit(sessionStartTime, sessionEndTime);
     } catch (err: any) {
       console.error("Error submitting experiment:", err);
       wizard.setError(
@@ -165,7 +225,36 @@ export function ExperimentWizard() {
         variant: "destructive",
       });
     } finally {
+      submittingRef.current = false;
       wizard.setSubmitting(false);
+    }
+  };
+
+  const handleConfirmOverwrite = async () => {
+    const pending = pendingSessionTimesRef.current;
+    const existing = duplicateExperiment;
+    if (!pending || !existing) return;
+
+    try {
+      submittingRef.current = true;
+      wizard.setSubmitting(true);
+      wizard.setError(null);
+      setDuplicateExperiment(null);
+      await performSubmit(pending.start, pending.end, existing.id);
+    } catch (err: any) {
+      console.error("Error overwriting experiment:", err);
+      wizard.setError(
+        err.message || "Error al crear el experimento. Por favor, intenta de nuevo."
+      );
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo crear el experimento",
+        variant: "destructive",
+      });
+    } finally {
+      submittingRef.current = false;
+      wizard.setSubmitting(false);
+      pendingSessionTimesRef.current = null;
     }
   };
 
@@ -285,6 +374,33 @@ export function ExperimentWizard() {
           />
         )}
       </div>
+
+      <AlertDialog
+        open={duplicateExperiment !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDuplicateExperiment(null);
+            pendingSessionTimesRef.current = null;
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ya existe un experimento con ese nombre</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ya tienes un experimento activo llamado &quot;{duplicateExperiment?.title}
+              &quot;. ¿Deseas sobrescribirlo? Esto eliminará el experimento anterior (y
+              cualquier equipo que tuviera reservado) y lo reemplazará por este nuevo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmOverwrite}>
+              Sí, sobrescribir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -40,11 +40,6 @@ export function BasicInfoStep({
     }
   };
 
-  const handleOwnerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onUpdate({ owner_id: e.target.value });
-    setLocalError(null);
-  };
-
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdate({ title: e.target.value });
     setLocalError(null);
@@ -137,29 +132,22 @@ export function BasicInfoStep({
           </p>
         </div>
 
-        {/* Owner Selection */}
+        {/* Owner — always the current user. The legal responsibility waiver
+            (next step) is a personal acceptance: only the person who is
+            actually logged in and clicks "acepto" can become the owner, so
+            this can't be reassigned to someone else here. Add them as an
+            "Acompañante" below instead if they should collaborate. */}
         <div className="space-y-2">
-          <Label htmlFor="owner-select" className="text-base font-medium">
-            Persona a Cargo *
-          </Label>
-          <select
-            id="owner-select"
-            value={formData.owner_id}
-            onChange={handleOwnerChange}
-            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">-- Selecciona una persona --</option>
-            {allProfiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.full_name || profile.email}
-              </option>
-            ))}
-          </select>
-          {currentUser && formData.owner_id === currentUser.id && (
-            <p className="text-xs text-green-600 dark:text-green-400">
-              Eres tú (usuario actual)
-            </p>
-          )}
+          <Label className="text-base font-medium">Persona a Cargo</Label>
+          <div className="w-full px-3 py-2 rounded-lg border border-input bg-muted/40 text-foreground">
+            {currentUser?.full_name || currentUser?.email || "—"}{" "}
+            <span className="text-xs text-muted-foreground">(tú)</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Debe ser quien inicia sesión, porque en el siguiente paso acepta personalmente
+            la responsabilidad legal del experimento. Para que otra persona lo dirija, que
+            ella misma lo cree.
+          </p>
         </div>
 
         {/* Companions */}

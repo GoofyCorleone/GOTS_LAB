@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  searchUsers as searchUsersQuery,
+  searchOwnersWithActiveExperiments,
+  searchExperimentsByTitle,
   getExperimentsInProgress,
   createAccessRequest as createAccessRequestQuery,
   getAccessRequests,
@@ -63,11 +64,11 @@ export function useAccompanyExperiment() {
     debounceRef.current = setTimeout(async () => {
       try {
         setSearchError(null);
-        const results = await searchUsersQuery(term);
+        const results = await searchOwnersWithActiveExperiments(term);
         setSearchResults(results);
       } catch (err: any) {
-        console.error("Error searching users:", err);
-        setSearchError(err.message || "No se pudo buscar usuarios");
+        console.error("Error searching owners:", err);
+        setSearchError(err.message || "No se pudo buscar personas");
         setSearchResults([]);
       } finally {
         setSearchLoading(false);
@@ -86,6 +87,75 @@ export function useAccompanyExperiment() {
   const selectUser = useCallback((profile: SearchResult | null) => {
     setSelectedUser(profile);
   }, []);
+
+  // --- Search by experiment title (any owner) ----------------------------
+  const [experimentSearchQuery, setExperimentSearchQueryState] = useState("");
+  const [experimentSearchResults, setExperimentSearchResults] = useState<
+    JoinableExperimentWithCount[]
+  >([]);
+  const [experimentSearchLoading, setExperimentSearchLoading] = useState(false);
+  const [experimentSearchError, setExperimentSearchError] = useState<string | null>(
+    null
+  );
+  const experimentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (experimentDebounceRef.current) clearTimeout(experimentDebounceRef.current);
+
+    const term = experimentSearchQuery.trim();
+    if (term.length < 2 || !user) {
+      setExperimentSearchResults([]);
+      setExperimentSearchError(null);
+      setExperimentSearchLoading(false);
+      return;
+    }
+
+    setExperimentSearchLoading(true);
+    experimentDebounceRef.current = setTimeout(async () => {
+      try {
+        setExperimentSearchError(null);
+        const results = await searchExperimentsByTitle(term, user.id);
+        const counts = await getActiveItemCounts(results.map((e) => e.id));
+        setExperimentSearchResults(
+          results.map((e) => ({ ...e, items_count: counts.get(e.id) || 0 }))
+        );
+      } catch (err: any) {
+        console.error("Error searching experiments:", err);
+        setExperimentSearchError(err.message || "No se pudieron buscar experimentos");
+        setExperimentSearchResults([]);
+      } finally {
+        setExperimentSearchLoading(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      if (experimentDebounceRef.current) clearTimeout(experimentDebounceRef.current);
+    };
+  }, [experimentSearchQuery, user]);
+
+  const setExperimentSearchQuery = useCallback((q: string) => {
+    setExperimentSearchQueryState(q);
+  }, []);
+
+  const requestAccessFromSearch = useCallback(
+    async (experimentId: string) => {
+      if (!user) throw new Error("Debes iniciar sesión");
+      setProcessingExperimentId(experimentId);
+      try {
+        await createAccessRequestQuery(experimentId, user.id);
+        setExperimentSearchResults((prev) =>
+          prev.map((e) =>
+            e.id === experimentId
+              ? { ...e, participation_status: "pending" as const }
+              : e
+          )
+        );
+      } finally {
+        setProcessingExperimentId(null);
+      }
+    },
+    [user]
+  );
 
   // --- Experiments in progress ------------------------------------------
   const [allExperiments, setAllExperiments] = useState<
@@ -325,6 +395,14 @@ export function useAccompanyExperiment() {
     loadExperimentsInProgress,
     processingExperimentId,
     createAccessRequest,
+
+    // search by experiment title
+    experimentSearchQuery,
+    setExperimentSearchQuery,
+    experimentSearchResults,
+    experimentSearchLoading,
+    experimentSearchError,
+    requestAccessFromSearch,
 
     // notifications
     notifications,

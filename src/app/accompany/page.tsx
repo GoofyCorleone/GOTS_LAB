@@ -8,7 +8,7 @@ import { useAccompanyExperiment } from "@/hooks/useAccompanyExperiment";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Search, ArrowRight, TriangleAlert } from "lucide-react";
+import { Loader2, Search, ArrowRight, TriangleAlert, FlaskConical } from "lucide-react";
 import { UserSearchInput, initials } from "@/components/accompany/UserSearchInput";
 import { ExperimentsInProgressList } from "@/components/accompany/ExperimentsInProgressList";
 import { AccessRequestDialog } from "@/components/accompany/AccessRequestDialog";
@@ -33,8 +33,15 @@ export default function AccompanyPage() {
     processingExperimentId,
     loadExperimentsInProgress,
     createAccessRequest,
+    experimentSearchQuery,
+    setExperimentSearchQuery,
+    experimentSearchResults,
+    experimentSearchLoading,
+    experimentSearchError,
+    requestAccessFromSearch,
   } = useAccompanyExperiment();
 
+  const [searchMode, setSearchMode] = useState<"persona" | "experimento">("persona");
   const [showExperiments, setShowExperiments] = useState(false);
   const [requestTarget, setRequestTarget] =
     useState<JoinableExperimentWithCount | null>(null);
@@ -59,7 +66,11 @@ export default function AccompanyPage() {
   const handleConfirmRequest = async () => {
     if (!requestTarget) return;
     try {
-      await createAccessRequest(requestTarget.id);
+      if (searchMode === "experimento") {
+        await requestAccessFromSearch(requestTarget.id);
+      } else {
+        await createAccessRequest(requestTarget.id);
+      }
       toast.success("Solicitud enviada", {
         description: `Se notificó a quien dirige "${requestTarget.title}".`,
       });
@@ -95,24 +106,85 @@ export default function AccompanyPage() {
           </p>
         </div>
 
-        {/* Search */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
-            <Search className="h-4 w-4" />
-            Buscar persona a cargo
+        {/* Mode toggle */}
+        <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg border bg-card">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="accompany-search-mode"
+              checked={searchMode === "persona"}
+              onChange={() => setSearchMode("persona")}
+              className="w-4 h-4"
+            />
+            <span className="text-sm font-medium">Buscar por persona a cargo</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="accompany-search-mode"
+              checked={searchMode === "experimento"}
+              onChange={() => setSearchMode("experimento")}
+              className="w-4 h-4"
+            />
+            <span className="text-sm font-medium">Buscar por nombre de experimento</span>
+          </label>
+        </div>
+
+        {/* Search by person */}
+        {searchMode === "persona" && (
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
+              <Search className="h-4 w-4" />
+              Buscar persona a cargo (solo personas con experimentos no finalizados)
+            </div>
+            <UserSearchInput
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              results={searchResults}
+              loading={searchLoading}
+              error={searchError}
+              onSelect={handleSelectUser}
+            />
+          </Card>
+        )}
+
+        {/* Search by experiment title */}
+        {searchMode === "experimento" && (
+          <div className="space-y-4">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4 text-sm font-medium text-muted-foreground">
+                <FlaskConical className="h-4 w-4" />
+                Buscar por nombre de experimento
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Ej: Ley de Malus, Interferómetro..."
+                  value={experimentSearchQuery}
+                  onChange={(e) => setExperimentSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 pl-10 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+              {experimentSearchError && (
+                <p className="text-sm text-destructive mt-2">{experimentSearchError}</p>
+              )}
+            </Card>
+
+            {experimentSearchQuery.trim().length >= 2 && (
+              <ExperimentsInProgressList
+                experiments={experimentSearchResults}
+                loading={experimentSearchLoading}
+                processingId={processingExperimentId}
+                onRequestAccess={setRequestTarget}
+                showOwner
+              />
+            )}
           </div>
-          <UserSearchInput
-            query={searchQuery}
-            onQueryChange={setSearchQuery}
-            results={searchResults}
-            loading={searchLoading}
-            error={searchError}
-            onSelect={handleSelectUser}
-          />
-        </Card>
+        )}
 
         {/* Selected user */}
-        {selectedUser && (
+        {searchMode === "persona" && selectedUser && (
           <Card className="p-6">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
               <div className="flex items-center gap-4">
@@ -152,7 +224,7 @@ export default function AccompanyPage() {
         )}
 
         {/* Experiments in progress */}
-        {selectedUser && !isSelf && showExperiments && (
+        {searchMode === "persona" && selectedUser && !isSelf && showExperiments && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold">
               Experimentos en curso de {selectedUser.full_name || selectedUser.email}

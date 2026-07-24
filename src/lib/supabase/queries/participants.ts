@@ -199,6 +199,117 @@ export async function searchUsers(query: string): Promise<SearchResult[]> {
 }
 
 /**
+ * 1b. Search only among people who are the owner of at least one non-finished
+ *     experiment (draft or in_progress) — "persona a cargo" search on the
+ *     Acompañar page. Excludes the current user.
+ */
+export async function searchOwnersWithActiveExperiments(
+  query: string
+): Promise<SearchResult[]> {
+  const term = query.trim();
+  if (term.length === 0) return [];
+
+  const user = await requireUser();
+
+  const { data: activeExperiments, error: expError } = await supabase
+    .from("experiments")
+    .select("owner_id")
+    .in("status", ["draft", "in_progress"]);
+
+  if (expError) {
+    console.error("Error fetching active experiment owners:", expError);
+    throw new Error(
+      `Failed to search owners: ${expError.message || "Unknown error"}`
+    );
+  }
+
+  const ownerIds = [
+    ...new Set(((activeExperiments as { owner_id: string }[]) || []).map((e) => e.owner_id)),
+  ].filter((id) => id !== user.id);
+
+  if (ownerIds.length === 0) return [];
+
+  const escaped = term.replace(/[%_]/g, (m) => `\\${m}`);
+  const pattern = `%${escaped}%`;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, role")
+    .in("id", ownerIds)
+    .or(`email.ilike.${pattern},full_name.ilike.${pattern}`)
+    .order("full_name", { ascending: true })
+    .limit(20);
+
+  if (error) {
+    console.error("Error searching owners:", error);
+    throw new Error(`Failed to search owners: ${error.message || "Unknown error"}`);
+  }
+
+  return (data as SearchResult[]) || [];
+}
+
+/**
+ * 1c. Search in-progress experiments by title (any owner but the current
+ *     user), enriched the same way as getExperimentsInProgress, for the
+ *     "buscar por nombre de experimento" mode on the Acompañar page.
+ */
+export async function searchExperimentsByTitle(
+  query: string,
+  userId: string
+): Promise<JoinableExperiment[]> {
+  const term = query.trim();
+  if (term.length === 0) return [];
+
+  const escaped = term.replace(/[%_]/g, (m) => `\\${m}`);
+  const pattern = `%${escaped}%`;
+
+  const { data, error } = await supabase
+    .from("experiments")
+    .select("*")
+    .eq("status", "in_progress")
+    .neq("owner_id", userId)
+    .ilike("title", pattern)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("Error searching experiments by title:", error);
+    throw new Error(
+      `Failed to search experiments: ${error.message || "Unknown error"}`
+    );
+  }
+
+  const experiments = (data as Experiment[]) || [];
+  if (experiments.length === 0) return [];
+
+  const ownerIds = [...new Set(experiments.map((e) => e.owner_id))];
+  const [ownersRes, participationRes] = await Promise.all([
+    supabase.from("profiles").select("*").in("id", ownerIds),
+    supabase
+      .from("experiment_participants")
+      .select("experiment_id, status")
+      .eq("user_id", userId)
+      .in(
+        "experiment_id",
+        experiments.map((e) => e.id)
+      ),
+  ]);
+
+  const owners = (ownersRes.data as Profile[]) || [];
+  const participationByExperiment = new Map<string, ParticipationStatus>();
+  for (const row of (participationRes.data as ExperimentParticipant[]) || []) {
+    participationByExperiment.set(row.experiment_id, row.status as ParticipationStatus);
+  }
+
+  return experiments.map((exp) => ({
+    ...exp,
+    owner: owners.find((o) => o.id === exp.owner_id),
+    participation_status:
+      participationByExperiment.get(exp.id) ?? ("none" as ParticipationStatus),
+  }));
+}
+
+/**
  * 2. List in-progress experiments the given user can accompany. Excludes the
  *    experiments they already own and annotates each with the user's own
  *    participation status (none / pending / approved / rejected). RLS

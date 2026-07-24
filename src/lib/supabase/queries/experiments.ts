@@ -1235,3 +1235,62 @@ export async function uploadExperimentPhoto(
 
   return data.publicUrl;
 }
+
+/**
+ * Check whether the given owner already has a non-finished/cancelled
+ * experiment with this exact title. Used by the "new experiment" wizard to
+ * offer overwriting instead of silently creating a confusing duplicate.
+ */
+export async function findActiveExperimentByTitle(
+  ownerId: string,
+  title: string
+): Promise<Experiment | null> {
+  const { data, error } = await supabase
+    .from("experiments")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .eq("title", title)
+    .in("status", ["draft", "in_progress"])
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error checking for duplicate experiment title:", error);
+    return null;
+  }
+
+  return (data as Experiment) || null;
+}
+
+/**
+ * Delete an experiment and all of its child rows (items, item shares,
+ * sessions, participants, legal acceptance). Owner-only. There is no
+ * ON DELETE CASCADE in the schema (by design, so accidental deletes don't
+ * silently wipe audit trails elsewhere), so this deletes children first in
+ * dependency order. Used for wizard rollback-on-failure and the
+ * "overwrite existing draft" flow — never for finished experiments with
+ * real history, which callers should not offer this for.
+ */
+export async function deleteExperiment(id: string): Promise<void> {
+  await requireOwnedExperiment(id);
+
+  const { data: items } = await supabase
+    .from("experiment_items")
+    .select("id")
+    .eq("experiment_id", id);
+  const itemIds = ((items as { id: string }[]) || []).map((i) => i.id);
+
+  if (itemIds.length > 0) {
+    await supabase.from("experiment_item_shares").delete().in("experiment_item_id", itemIds);
+  }
+  await supabase.from("experiment_items").delete().eq("experiment_id", id);
+  await supabase.from("experiment_sessions").delete().eq("experiment_id", id);
+  await supabase.from("experiment_participants").delete().eq("experiment_id", id);
+  await supabase.from("experiment_legal_acceptance").delete().eq("experiment_id", id);
+
+  const { error } = await supabase.from("experiments").delete().eq("id", id);
+  if (error) {
+    console.error("Error deleting experiment:", error);
+    throw new Error(`Failed to delete experiment: ${error.message || "Unknown error"}`);
+  }
+}

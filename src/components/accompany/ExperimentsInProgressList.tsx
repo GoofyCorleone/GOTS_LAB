@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, FlaskConical, Loader2, Package } from "lucide-react";
+import { Calendar, FlaskConical, Loader2, Package, User } from "lucide-react";
 import type { JoinableExperimentWithCount } from "@/hooks/useAccompanyExperiment";
 
 function formatDate(value: string | null) {
@@ -28,6 +28,9 @@ interface ExperimentsInProgressListProps {
   loading?: boolean;
   processingId?: string | null;
   onRequestAccess: (experiment: JoinableExperimentWithCount) => void;
+  /** Show the owner's name on each card — useful when the list spans
+   *  multiple different owners (search-by-experiment-name mode). */
+  showOwner?: boolean;
 }
 
 export function ExperimentsInProgressList({
@@ -35,6 +38,7 @@ export function ExperimentsInProgressList({
   loading,
   processingId,
   onRequestAccess,
+  showOwner,
 }: ExperimentsInProgressListProps) {
   if (loading) {
     return (
@@ -58,11 +62,32 @@ export function ExperimentsInProgressList({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {experiments.map((experiment) => (
-        <Card key={experiment.id} className="flex flex-col">
+        <Card key={experiment.id} className="flex flex-col overflow-hidden">
+          <div className="relative w-full h-36 bg-muted">
+            {experiment.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={experiment.photo_url}
+                alt={experiment.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                Sin fotografía
+              </div>
+            )}
+          </div>
+
           <CardHeader className="pb-2">
             <CardTitle className="text-lg line-clamp-2">
               {experiment.title}
             </CardTitle>
+            {showOwner && experiment.owner && (
+              <CardDescription className="flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" />A cargo:{" "}
+                {experiment.owner.full_name || experiment.owner.email}
+              </CardDescription>
+            )}
             <CardDescription className="flex items-center gap-1.5 mt-1">
               <Calendar className="h-3.5 w-3.5" />
               Inicio: {formatDate(experiment.fecha_inicio)}

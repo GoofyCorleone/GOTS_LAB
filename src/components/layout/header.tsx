@@ -9,8 +9,14 @@ import { NotificationBell } from "@/components/accompany/NotificationBell";
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, signOut } = useAuth();
+
+  // Opaque/readable either after scrolling past the transparent hero, or
+  // whenever the cursor is over the header — so it's never unreadable just
+  // because the mouse happens to be resting near the top of the page.
+  const isActive = isScrolled || isHovered;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,8 +33,10 @@ export function Header() {
 
   return (
     <header
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? "bg-background/95 backdrop-blur-md shadow-md" : "bg-transparent"
+        isActive ? "bg-background/95 backdrop-blur-md shadow-md" : "bg-transparent"
       }`}
     >
       <div className="container mx-auto px-4 py-2">
@@ -49,7 +57,7 @@ export function Header() {
             <Link
               href="/"
               className={`text-sm font-medium transition-colors ${
-                isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
               }`}
             >
               Inicio
@@ -57,7 +65,7 @@ export function Header() {
             <Link
               href="/inventory"
               className={`text-sm font-medium transition-colors ${
-                isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
               }`}
             >
               Inventario
@@ -68,7 +76,7 @@ export function Header() {
                 <Link
                   href="/experiments"
                   className={`text-sm font-medium transition-colors ${
-                    isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                    isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
                   }`}
                 >
                   Experimentos
@@ -76,7 +84,7 @@ export function Header() {
                 <Link
                   href="/accompany"
                   className={`text-sm font-medium transition-colors ${
-                    isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                    isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
                   }`}
                 >
                   Acompañar
@@ -84,21 +92,21 @@ export function Header() {
                 <Link
                   href="/profile"
                   className={`text-sm font-medium transition-colors ${
-                    isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                    isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
                   }`}
                 >
                   Mi Perfil
                 </Link>
                 <div className="flex items-center gap-3">
                   <NotificationBell
-                    className={isScrolled ? "" : "text-white hover:text-white hover:bg-white/10"}
+                    className={isActive ? "" : "text-white hover:text-white hover:bg-white/10"}
                   />
                   <span className="text-xs text-muted-foreground">{user?.email}</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleSignOut}
-                    className={isScrolled ? "" : "text-white hover:text-white hover:bg-white/10"}
+                    className={isActive ? "" : "text-white hover:text-white hover:bg-white/10"}
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
@@ -109,7 +117,7 @@ export function Header() {
                 <Link href="/login">
                   <Button
                     variant="ghost"
-                    className={isScrolled ? "" : "text-white hover:text-white hover:bg-white/10"}
+                    className={isActive ? "" : "text-white hover:text-white hover:bg-white/10"}
                   >
                     Iniciar Sesión
                   </Button>
@@ -127,7 +135,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
-            className={`md:hidden ${isScrolled ? "" : "text-white hover:text-white hover:bg-white/10"}`}
+            className={`md:hidden ${isActive ? "" : "text-white hover:text-white hover:bg-white/10"}`}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

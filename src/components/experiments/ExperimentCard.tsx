@@ -46,18 +46,16 @@ export function ExperimentCard({
 
   return (
     <Card className="flex flex-col overflow-hidden">
-      {variant === "public" && (
-        <div className="relative w-full h-36 bg-muted">
-          {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photoUrl} alt={experiment.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-              Sin fotografía
-            </div>
-          )}
-        </div>
-      )}
+      <div className="relative w-full h-36 bg-muted">
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photoUrl} alt={experiment.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+            Sin fotografía
+          </div>
+        )}
+      </div>
 
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
