@@ -49,6 +49,27 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # NEXT_PUBLIC_* vars are inlined into the bundle at build time, so if a
+      # secret is missing the build dies deep inside prerendering with a bare
+      # "supabaseUrl is required". Fail here instead, naming what's missing.
+      - name: Check required secrets
+        run: |
+          missing=0
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "::error::Falta el secret NEXT_PUBLIC_SUPABASE_URL"
+            missing=1
+          fi
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::Falta el secret NEXT_PUBLIC_SUPABASE_ANON_KEY"
+            missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            echo "Configúralos en: Settings -> Secrets and variables -> Actions -> New repository secret"
+            echo "Los nombres deben coincidir EXACTAMENTE (mayúsculas y guiones bajos)."
+            exit 1
+          fi
+          echo "Ambos secrets están configurados."
+
       - name: Build with Next.js
         run: npm run build
         env:
