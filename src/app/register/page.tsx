@@ -236,7 +236,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Solo se permiten correos @correo.uis.edu.co
+          Solo se permiten correos @correo.uis.edu.co o @uis.edu.co
         </p>
       </div>
     </div>

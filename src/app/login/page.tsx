@@ -53,7 +53,7 @@ export default function LoginPage() {
                 disabled={loading}
               />
               <p className="text-xs text-muted-foreground">
-                Usa tu correo institucional (@correo.uis.edu.co)
+                Usa tu correo institucional (@correo.uis.edu.co o @uis.edu.co)
               </p>
             </div>
 

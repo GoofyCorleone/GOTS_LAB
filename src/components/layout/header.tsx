@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Bug } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/accompany/NotificationBell";
@@ -13,9 +13,11 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, signOut } = useAuth();
 
-  // Opaque/readable either after scrolling past the transparent hero, or
-  // whenever the cursor is over the header — so it's never unreadable just
-  // because the mouse happens to be resting near the top of the page.
+  // The header used to be transparent with white text until you scrolled —
+  // a pattern inherited from the institutional site, which has a dark hero
+  // image behind it. This app has no dark hero: --background is pure white,
+  // so white-on-white made the nav invisible on every page. The header is now
+  // always readable; scroll/hover only add depth (shadow + stronger blur).
   const isActive = isScrolled || isHovered;
 
   useEffect(() => {
@@ -35,8 +37,8 @@ export function Header() {
     <header
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isActive ? "bg-background/95 backdrop-blur-md shadow-md" : "bg-transparent"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-md ${
+        isActive ? "bg-background/95 shadow-md" : "bg-background/80"
       }`}
     >
       <div className="container mx-auto px-4 py-2">
@@ -57,7 +59,7 @@ export function Header() {
             <Link
               href="/"
               className={`text-sm font-medium transition-colors ${
-                isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                "text-foreground hover:text-gold"
               }`}
             >
               Inicio
@@ -65,7 +67,7 @@ export function Header() {
             <Link
               href="/inventory"
               className={`text-sm font-medium transition-colors ${
-                isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                "text-foreground hover:text-gold"
               }`}
             >
               Inventario
@@ -76,7 +78,7 @@ export function Header() {
                 <Link
                   href="/experiments"
                   className={`text-sm font-medium transition-colors ${
-                    isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                    "text-foreground hover:text-gold"
                   }`}
                 >
                   Experimentos
@@ -84,7 +86,7 @@ export function Header() {
                 <Link
                   href="/accompany"
                   className={`text-sm font-medium transition-colors ${
-                    isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                    "text-foreground hover:text-gold"
                   }`}
                 >
                   Acompañar
@@ -92,21 +94,29 @@ export function Header() {
                 <Link
                   href="/profile"
                   className={`text-sm font-medium transition-colors ${
-                    isActive ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                    "text-foreground hover:text-gold"
                   }`}
                 >
                   Mi Perfil
                 </Link>
+                <Link
+                  href="/report"
+                  title="Reportar un error o bug"
+                  className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    "text-foreground hover:text-gold"
+                  }`}
+                >
+                  <Bug className="h-4 w-4" />
+                  Reportar error
+                </Link>
                 <div className="flex items-center gap-3">
-                  <NotificationBell
-                    className={isActive ? "" : "text-white hover:text-white hover:bg-white/10"}
-                  />
+                  <NotificationBell />
                   <span className="text-xs text-muted-foreground">{user?.email}</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleSignOut}
-                    className={isActive ? "" : "text-white hover:text-white hover:bg-white/10"}
+
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
@@ -117,7 +127,7 @@ export function Header() {
                 <Link href="/login">
                   <Button
                     variant="ghost"
-                    className={isActive ? "" : "text-white hover:text-white hover:bg-white/10"}
+
                   >
                     Iniciar Sesión
                   </Button>
@@ -135,7 +145,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
-            className={`md:hidden ${isActive ? "" : "text-white hover:text-white hover:bg-white/10"}`}
+            className="md:hidden"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -182,6 +192,14 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Mi Perfil
+                </Link>
+                <Link
+                  href="/report"
+                  className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2 flex items-center gap-1.5"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Bug className="h-4 w-4" />
+                  Reportar error
                 </Link>
                 <Button
                   variant="ghost"

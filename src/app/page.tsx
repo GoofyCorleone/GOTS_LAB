@@ -135,7 +135,7 @@ export default function HomePage() {
               </div>
 
               <p className="text-center text-sm text-muted-foreground mt-6">
-                Solo para miembros del GOTS con correo @correo.uis.edu.co
+                Solo para miembros del GOTS con correo @correo.uis.edu.co o @uis.edu.co
               </p>
             </>
           )}
