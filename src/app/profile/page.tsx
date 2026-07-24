@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, LogOut, AlertCircle, FlaskConical, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Bell, LogOut, AlertCircle, FlaskConical, Loader2, Camera } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   getExperimentsByOwner,
   getActiveItemCounts,
   getProfile,
+  uploadAvatar,
   type Experiment,
   type ExperimentWithStats,
   type Profile,
@@ -59,6 +60,24 @@ export default function ProfilePage() {
   const [experimentsError, setExperimentsError] = useState<string | null>(null);
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadAvatar(file);
+      setProfile((prev) => (prev ? { ...prev, avatar_url: url } : prev));
+      toast.success("Foto de perfil actualizada");
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo subir la foto");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -155,9 +174,53 @@ export default function ProfilePage() {
         {/* Profile Header */}
         <div className="bg-card border border-border rounded-lg p-6 sm:p-8 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-5">
+              {/* Profile photo */}
+              <div className="relative shrink-0">
+                <div className="h-24 w-24 rounded-full overflow-hidden bg-muted border border-border">
+                  {profile?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={profile.avatar_url}
+                      alt="Foto de perfil"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-muted-foreground">
+                      {(profile?.full_name || user?.email || "?")
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleAvatarSelected}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  title="Cambiar foto de perfil"
+                  aria-label="Cambiar foto de perfil"
+                  className="absolute bottom-0 right-0 rounded-full bg-background border border-border p-2 shadow hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold mb-2">Mi Perfil</h1>
-              <p className="text-muted-foreground">{user?.email}</p>
+              <p className="text-muted-foreground">{profile?.full_name || user?.email}</p>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
               {profile && (profile.member_status || profile.career) && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {profile.member_status && (
@@ -170,6 +233,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               )}
+            </div>
             </div>
             <Button
               variant="destructive"

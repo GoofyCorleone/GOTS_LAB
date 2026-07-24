@@ -890,15 +890,17 @@ export async function updateSessionEndTime(
   await requireOwnedExperiment(s.experiment_id);
 
   if (s.ended_at_actual !== null) {
-    throw new Error("Session is already closed");
+    throw new Error("Esta sesión ya está cerrada");
   }
 
+  // A session can be ended at any moment — before or after its planned end
+  // time. The only invariant is that it cannot end before it started.
   const endedAt = ended_at_actual
     ? new Date(ended_at_actual).toISOString()
     : new Date().toISOString();
 
   if (new Date(endedAt) < new Date(s.started_at)) {
-    throw new Error("Session end time must be after its start time");
+    throw new Error("La hora de fin no puede ser anterior al inicio de la sesión");
   }
 
   const { data, error } = await ((supabase as any)
@@ -1293,4 +1295,92 @@ export async function deleteExperiment(id: string): Promise<void> {
     console.error("Error deleting experiment:", error);
     throw new Error(`Failed to delete experiment: ${error.message || "Unknown error"}`);
   }
+}
+
+/**
+ * Write/replace the observations for a session. Available to the experiment
+ * owner and to approved collaborators (the DB trigger restricts collaborators
+ * to this column only).
+ */
+export async function updateSessionObservations(
+  sessionId: string,
+  observations: string
+): Promise<ExperimentSession> {
+  await requireUser();
+
+  const { data, error } = await ((supabase as any)
+    .from("experiment_sessions")
+    .update({ observations: observations.trim() || null })
+    .eq("id", sessionId)
+    .select()
+    .single() as any);
+
+  if (error) {
+    console.error("Error updating session observations:", error);
+    throw new Error(
+      `No se pudieron guardar las observaciones: ${error.message || "error desconocido"}`
+    );
+  }
+
+  return data as ExperimentSession;
+}
+
+/**
+ * Ask the DB to close any session whose planned end time has already passed,
+ * stamping the planned end as the real one. This project is a static export
+ * with no server or cron, so the app calls this opportunistically whenever it
+ * loads an experiment. Idempotent and safe to call from any signed-in user.
+ */
+export async function closeOverdueSessions(): Promise<number> {
+  const { data, error } = await (supabase.rpc("close_overdue_sessions") as any);
+  if (error) {
+    // Never block rendering an experiment because the janitor failed.
+    console.error("Error closing overdue sessions:", error);
+    return 0;
+  }
+  return (data as number) ?? 0;
+}
+
+/**
+ * Upload (or replace) the current user's profile photo and point
+ * profiles.avatar_url at its public URL.
+ */
+export async function uploadAvatar(file: File): Promise<string> {
+  const user = await requireUser();
+
+  const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+  if (!allowed.includes(file.type)) {
+    throw new Error("Formato no permitido. Usa PNG, JPG, WEBP o GIF.");
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("La imagen no puede pesar más de 5 MB.");
+  }
+
+  const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `${user.id}/avatar.${ext || "png"}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("avatars")
+    .upload(path, file, { contentType: file.type, upsert: true });
+
+  if (uploadError) {
+    console.error("Error uploading avatar:", uploadError);
+    throw new Error(`No se pudo subir la foto: ${uploadError.message || "error desconocido"}`);
+  }
+
+  // Cache-bust so the new photo shows immediately after replacing an old one.
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
+
+  const { error: updateError } = await ((supabase as any)
+    .from("profiles")
+    .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+    .eq("id", user.id) as any);
+
+  if (updateError) {
+    console.error("Error saving avatar_url:", updateError);
+    throw new Error(`No se pudo guardar la foto: ${updateError.message || "error desconocido"}`);
+  }
+
+  return publicUrl;
 }

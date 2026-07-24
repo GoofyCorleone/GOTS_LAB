@@ -82,6 +82,7 @@ export function ExperimentDetailView() {
     updateDescription,
     updateStage,
     uploadPhoto,
+    saveObservations,
   } = useExperimentDetail(experimentId);
 
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
@@ -96,6 +97,8 @@ export function ExperimentDetailView() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [requestingAccess, setRequestingAccess] = useState(false);
   const [accessRequested, setAccessRequested] = useState(false);
+  const [observationsSessionId, setObservationsSessionId] = useState<string | null>(null);
+  const [observationsDraft, setObservationsDraft] = useState("");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -140,6 +143,26 @@ export function ExperimentDetailView() {
   const canManageSessions = isOwner && !isFinishedOrCancelled;
   const activeItems = experiment.items.filter((it) => it.status === "active");
   const companions = experiment.participants.filter((p) => p.status === "approved");
+  // Session numbers are assigned chronologically and are stable for everyone
+  // looking at the experiment ("Sesión #1" is always the first one held).
+  const numberedSessions = [...experiment.sessions]
+    .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())
+    .map((session, i) => ({ ...session, number: i + 1 }));
+
+  const handleSaveObservations = async (sessionId: string) => {
+    try {
+      await saveObservations(sessionId, observationsDraft);
+      setObservationsSessionId(null);
+      toast({ title: "Observaciones guardadas" });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudieron guardar las observaciones",
+        variant: "destructive",
+      });
+    }
+  };
+
   const myParticipation = experiment.participants.find((p) => p.user_id === user?.id);
   const canRequestAccess =
     !isOwner && !myParticipation && experiment.status === "in_progress";
@@ -434,7 +457,7 @@ export function ExperimentDetailView() {
         <Tabs defaultValue="informacion">
           <TabsList>
             <TabsTrigger value="informacion">Información</TabsTrigger>
-            <TabsTrigger value="sesiones">Sesiones</TabsTrigger>
+            <TabsTrigger value="sesiones">Sesiones ({experiment.sessions.length})</TabsTrigger>
             <TabsTrigger value="inventario">Inventario</TabsTrigger>
           </TabsList>
 
@@ -528,34 +551,41 @@ export function ExperimentDetailView() {
           <TabsContent value="sesiones" className="mt-6">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Historial de sesiones</CardTitle>
+                <CardTitle className="text-base">
+                  Sesiones de trabajo ({numberedSessions.length})
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {experiment.sessions.length === 0 ? (
+                {numberedSessions.length === 0 ? (
                   <p className="text-sm text-muted-foreground italic">
                     Todavía no hay sesiones registradas.
                   </p>
                 ) : (
-                  <div className="space-y-3">
-                    {[...experiment.sessions]
-                      .sort(
-                        (a, b) =>
-                          new Date(b.started_at).getTime() -
-                          new Date(a.started_at).getTime()
-                      )
-                      .map((session) => {
-                        const isOpen = session.ended_at_actual === null;
-                        return (
-                          <div
-                            key={session.id}
-                            className="flex items-center justify-between gap-3 p-3 rounded-lg border flex-wrap"
-                          >
+                  <div className="space-y-4">
+                    {/* Newest first for reading, but each keeps the chronological
+                        number it was given (sesión #1 is always the first one). */}
+                    {[...numberedSessions].reverse().map((session) => {
+                      const isOpen = session.ended_at_actual === null;
+                      const isEditingObs = observationsSessionId === session.id;
+                      return (
+                        <div key={session.id} className="p-4 rounded-lg border space-y-3">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold">
+                                  Sesión #{session.number}
+                                </span>
+                                {isOpen ? (
+                                  <Badge className="bg-green-600 hover:bg-green-600 text-white">
+                                    En curso
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline">Terminada</Badge>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2 text-sm">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">
-                                  {formatDate(session.started_at, true)}
-                                </span>
+                                <span>{formatDate(session.started_at, true)}</span>
                                 <span className="text-muted-foreground">→</span>
                                 <span>
                                   {isOpen
@@ -567,13 +597,7 @@ export function ExperimentDetailView() {
                                 Fin planeado: {formatDate(session.ended_at_planned, true)}
                               </p>
                             </div>
-                            {isOpen ? (
-                              <Badge className="bg-green-600 hover:bg-green-600 text-white">
-                                Abierta
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline">Cerrada</Badge>
-                            )}
+
                             {isOpen && canManageSessions && (
                               <Button
                                 size="sm"
@@ -582,12 +606,76 @@ export function ExperimentDetailView() {
                                 disabled={actionLoading}
                               >
                                 <StopCircle className="h-4 w-4" />
-                                Cerrar sesión
+                                Terminar sesión #{session.number}
                               </Button>
                             )}
                           </div>
-                        );
-                      })}
+
+                          {/* Observations: owner + collaborators can write,
+                              everyone else can read. */}
+                          <div className="pt-3 border-t">
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">
+                              Observaciones del montaje
+                            </p>
+                            {isEditingObs ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={observationsDraft}
+                                  onChange={(e) => setObservationsDraft(e.target.value)}
+                                  rows={4}
+                                  autoFocus
+                                  placeholder="Ej: el láser quedó desalineado 2 mm; hubo que recalibrar el polarizador..."
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSaveObservations(session.id)}
+                                    disabled={actionLoading}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                    Guardar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setObservationsSessionId(null)}
+                                    disabled={actionLoading}
+                                  >
+                                    <X className="h-4 w-4" />
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start justify-between gap-2">
+                                {session.observations ? (
+                                  <p className="text-sm whitespace-pre-wrap">
+                                    {session.observations}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground italic">
+                                    Sin observaciones registradas.
+                                  </p>
+                                )}
+                                {canEditItems && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="shrink-0"
+                                    onClick={() => {
+                                      setObservationsDraft(session.observations || "");
+                                      setObservationsSessionId(session.id);
+                                    }}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

@@ -326,6 +326,7 @@ export type Database = {
           ended_at_planned: string
           experiment_id: string
           id: string
+          observations: string | null
           started_at: string
         }
         Insert: {
@@ -335,6 +336,7 @@ export type Database = {
           ended_at_planned: string
           experiment_id: string
           id?: string
+          observations?: string | null
           started_at: string
         }
         Update: {
@@ -344,6 +346,7 @@ export type Database = {
           ended_at_planned?: string
           experiment_id?: string
           id?: string
+          observations?: string | null
           started_at?: string
         }
         Relationships: [
@@ -544,6 +547,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           career: string | null
           created_at: string
           email: string
@@ -554,6 +558,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           career?: string | null
           created_at?: string
           email: string
@@ -564,6 +569,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           career?: string | null
           created_at?: string
           email?: string
@@ -580,6 +586,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      close_overdue_sessions: { Args: never; Returns: number }
       get_inventory_availability: {
         Args: never
         Returns: {

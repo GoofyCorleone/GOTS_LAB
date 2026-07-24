@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, Search, ArrowRight, TriangleAlert, FlaskConical } from "lucide-react";
 import { UserSearchInput, initials } from "@/components/accompany/UserSearchInput";
 import { ExperimentsInProgressList } from "@/components/accompany/ExperimentsInProgressList";
+import { ExperimentSearchList } from "@/components/accompany/ExperimentSearchList";
 import { AccessRequestDialog } from "@/components/accompany/AccessRequestDialog";
 import type { SearchResult } from "@/lib/supabase/queries/participants";
 import type { JoinableExperimentWithCount } from "@/hooks/useAccompanyExperiment";
@@ -172,12 +173,11 @@ export default function AccompanyPage() {
             </Card>
 
             {experimentSearchQuery.trim().length >= 2 && (
-              <ExperimentsInProgressList
+              <ExperimentSearchList
                 experiments={experimentSearchResults}
                 loading={experimentSearchLoading}
                 processingId={processingExperimentId}
                 onRequestAccess={setRequestTarget}
-                showOwner
               />
             )}
           </div>

@@ -14,6 +14,8 @@ import {
   updateExperimentDescription,
   updateExperimentStage,
   uploadExperimentPhoto,
+  updateSessionObservations,
+  closeOverdueSessions,
   type ExperimentWithDetails,
   type NewExperimentItem,
   type ExperimentItemShareWithProfile,
@@ -49,6 +51,9 @@ export function useExperimentDetail(experimentId: string | undefined) {
     if (!experimentId) return;
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
+      // Sessions whose planned end has passed are closed by the DB before we
+      // read, so the UI never shows a stale "open" session (no cron here).
+      await closeOverdueSessions();
       const experiment = await getExperimentById(experimentId);
       const sharedItemIds = experiment.items
         .filter((it) => it.sharing_mode === "compartido")
@@ -178,6 +183,12 @@ export function useExperimentDetail(experimentId: string | undefined) {
     [experimentId, withAction]
   );
 
+  const saveObservations = useCallback(
+    (sessionId: string, observations: string) =>
+      withAction(() => updateSessionObservations(sessionId, observations)),
+    [withAction]
+  );
+
   const uploadPhoto = useCallback(
     (file: File) =>
       withAction(() => {
@@ -198,5 +209,6 @@ export function useExperimentDetail(experimentId: string | undefined) {
     updateDescription,
     updateStage,
     uploadPhoto,
+    saveObservations,
   };
 }
