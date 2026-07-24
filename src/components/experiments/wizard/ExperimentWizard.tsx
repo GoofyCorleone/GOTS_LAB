@@ -91,6 +91,7 @@ export function ExperimentWizard() {
       const experiment = await createExperiment({
         title: wizard.formData.title,
         owner_id: wizard.formData.owner_id,
+        description: wizard.formData.description,
         fecha_inicio: wizard.formData.fecha_inicio,
         fecha_fin_tentativa: wizard.formData.fecha_fin_tentativa,
       });

@@ -329,6 +329,8 @@ export type Database = {
           fecha_inicio: string | null
           id: string
           owner_id: string
+          photo_url: string | null
+          stage: string | null
           status: string
           title: string
           updated_at: string
@@ -342,6 +344,8 @@ export type Database = {
           fecha_inicio?: string | null
           id?: string
           owner_id: string
+          photo_url?: string | null
+          stage?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -355,6 +359,8 @@ export type Database = {
           fecha_inicio?: string | null
           id?: string
           owner_id?: string
+          photo_url?: string | null
+          stage?: string | null
           status?: string
           title?: string
           updated_at?: string

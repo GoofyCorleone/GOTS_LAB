@@ -7,14 +7,16 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   getExperimentsByOwner,
   getActiveItemCounts,
+  getAllExperiments,
   type Experiment,
   type ExperimentWithStats,
+  type PublicExperimentSummary,
 } from "@/lib/supabase/queries/experiments";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExperimentCard } from "@/components/experiments/ExperimentCard";
-import { Loader2, FlaskConical, Plus } from "lucide-react";
+import { Loader2, FlaskConical, Plus, Globe } from "lucide-react";
 
 function withCounts(
   experiments: Experiment[],
@@ -31,6 +33,10 @@ export default function ExperimentsPage() {
   const [finished, setFinished] = useState<ExperimentWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [allExperiments, setAllExperiments] = useState<PublicExperimentSummary[]>([]);
+  const [allLoading, setAllLoading] = useState(true);
+  const [allError, setAllError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -63,6 +69,26 @@ export default function ExperimentsPage() {
     load();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const loadAll = async () => {
+      try {
+        setAllLoading(true);
+        setAllError(null);
+        const experiments = await getAllExperiments();
+        setAllExperiments(experiments);
+      } catch (err: any) {
+        console.error("Error loading all experiments:", err);
+        setAllError(err.message || "No se pudieron cargar los experimentos");
+      } finally {
+        setAllLoading(false);
+      }
+    };
+
+    loadAll();
+  }, [user]);
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-5xl mx-auto">
@@ -92,6 +118,11 @@ export default function ExperimentsPage() {
               </TabsTrigger>
               <TabsTrigger value="finalizados">
                 Finalizados {finished.length > 0 && `(${finished.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="todos">
+                <Globe className="h-4 w-4" />
+                Todos los Experimentos
+                {allExperiments.length > 0 && ` (${allExperiments.length})`}
               </TabsTrigger>
             </TabsList>
 
@@ -133,6 +164,42 @@ export default function ExperimentsPage() {
                       key={experiment.id}
                       experiment={experiment}
                       variant="finished"
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="todos" className="mt-6">
+              <p className="text-sm text-muted-foreground mb-4">
+                Todos los experimentos del laboratorio son visibles para cualquier miembro
+                registrado: fotografía, título, persona a cargo, colaboradores, estado y
+                equipos en uso.
+              </p>
+              {allLoading ? (
+                <Card className="p-12 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </Card>
+              ) : allError ? (
+                <Card className="p-8">
+                  <p className="text-sm text-red-600 dark:text-red-400">{allError}</p>
+                </Card>
+              ) : allExperiments.length === 0 ? (
+                <Card className="p-10 text-center">
+                  <Globe className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">
+                    Todavía no hay experimentos registrados en el laboratorio.
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {allExperiments.map((experiment) => (
+                    <ExperimentCard
+                      key={experiment.id}
+                      experiment={experiment}
+                      variant="public"
+                      owner={experiment.owner}
+                      collaborators={experiment.approved_participants}
                     />
                   ))}
                 </div>

@@ -5,6 +5,7 @@ import { WizardStep } from "./WizardStep";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import type { FormData } from "@/hooks/useExperimentWizard";
 import type { Profile } from "@/lib/supabase/queries/experiments";
 
@@ -47,6 +48,10 @@ export function BasicInfoStep({
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdate({ title: e.target.value });
     setLocalError(null);
+  };
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onUpdate({ description: e.target.value });
   };
 
   const handleAddCompanion = (profileId: string) => {
@@ -113,6 +118,23 @@ export function BasicInfoStep({
               Mínimo 3 caracteres ({formData.title.length}/3)
             </p>
           )}
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <Label htmlFor="experiment-description" className="text-base font-medium">
+            Descripción
+          </Label>
+          <Textarea
+            id="experiment-description"
+            placeholder="Describe qué se está haciendo en este experimento, con el detalle que quieras. Podrás editar esto en cualquier momento, incluso mientras el experimento está en curso."
+            value={formData.description}
+            onChange={handleDescriptionChange}
+            rows={5}
+          />
+          <p className="text-xs text-muted-foreground">
+            Opcional. Puedes dejarla en blanco ahora y completarla más adelante.
+          </p>
         </div>
 
         {/* Owner Selection */}

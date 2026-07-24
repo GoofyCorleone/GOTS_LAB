@@ -11,6 +11,9 @@ import {
   finishExperiment as finishExperimentQuery,
   createExperimentItemShares,
   getExperimentItemShares,
+  updateExperimentDescription,
+  updateExperimentStage,
+  uploadExperimentPhoto,
   type ExperimentWithDetails,
   type NewExperimentItem,
   type ExperimentItemShareWithProfile,
@@ -25,6 +28,8 @@ export interface UseExperimentDetailState {
   /** True while any mutating action (add/remove item, session, finish) is in flight */
   actionLoading: boolean;
   isOwner: boolean;
+  /** Approved participant (companion) — distinct from isOwner, both can edit items */
+  isParticipant: boolean;
 }
 
 export function useExperimentDetail(experimentId: string | undefined) {
@@ -37,6 +42,7 @@ export function useExperimentDetail(experimentId: string | undefined) {
     error: null,
     actionLoading: false,
     isOwner: false,
+    isParticipant: false,
   });
 
   const load = useCallback(async () => {
@@ -48,11 +54,16 @@ export function useExperimentDetail(experimentId: string | undefined) {
         .filter((it) => it.sharing_mode === "compartido")
         .map((it) => it.id);
       const itemShares = await getExperimentItemShares(sharedItemIds);
+      const isParticipant = !!user &&
+        experiment.participants.some(
+          (p) => p.user_id === user.id && p.status === "approved"
+        );
       setState((prev) => ({
         ...prev,
         experiment,
         itemShares,
         isOwner: !!user && experiment.owner_id === user.id,
+        isParticipant,
         loading: false,
       }));
     } catch (err: any) {
@@ -149,6 +160,33 @@ export function useExperimentDetail(experimentId: string | undefined) {
     [experimentId, withAction]
   );
 
+  const updateDescription = useCallback(
+    (description: string) =>
+      withAction(() => {
+        if (!experimentId) throw new Error("Experimento no definido");
+        return updateExperimentDescription(experimentId, description);
+      }),
+    [experimentId, withAction]
+  );
+
+  const updateStage = useCallback(
+    (stage: "montaje" | "toma_datos") =>
+      withAction(() => {
+        if (!experimentId) throw new Error("Experimento no definido");
+        return updateExperimentStage(experimentId, stage);
+      }),
+    [experimentId, withAction]
+  );
+
+  const uploadPhoto = useCallback(
+    (file: File) =>
+      withAction(() => {
+        if (!experimentId) throw new Error("Experimento no definido");
+        return uploadExperimentPhoto(experimentId, file);
+      }),
+    [experimentId, withAction]
+  );
+
   return {
     ...state,
     refresh: load,
@@ -157,5 +195,8 @@ export function useExperimentDetail(experimentId: string | undefined) {
     createSession,
     closeSession,
     finishExperiment,
+    updateDescription,
+    updateStage,
+    uploadPhoto,
   };
 }

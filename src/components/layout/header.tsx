@@ -66,6 +66,14 @@ export function Header() {
             {isAuthenticated ? (
               <>
                 <Link
+                  href="/experiments"
+                  className={`text-sm font-medium transition-colors ${
+                    isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
+                  }`}
+                >
+                  Experimentos
+                </Link>
+                <Link
                   href="/accompany"
                   className={`text-sm font-medium transition-colors ${
                     isScrolled ? "text-foreground hover:text-gold" : "text-white hover:text-gold"
@@ -146,6 +154,13 @@ export function Header() {
 
             {isAuthenticated ? (
               <>
+                <Link
+                  href="/experiments"
+                  className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Experimentos
+                </Link>
                 <Link
                   href="/accompany"
                   className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,7 @@ import type { ExperimentItemWithDetails } from "@/lib/supabase/queries/experimen
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -37,6 +38,10 @@ import {
   PlayCircle,
   StopCircle,
   Package,
+  Pencil,
+  Check,
+  X,
+  Camera,
 } from "lucide-react";
 
 function formatDate(value: string | null | undefined, withTime = false) {
@@ -66,11 +71,15 @@ export function ExperimentDetailView() {
     error,
     actionLoading,
     isOwner,
+    isParticipant,
     addItem,
     removeItem,
     createSession,
     closeSession,
     finishExperiment,
+    updateDescription,
+    updateStage,
+    uploadPhoto,
   } = useExperimentDetail(experimentId);
 
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
@@ -80,6 +89,9 @@ export function ExperimentDetailView() {
   const [removeTarget, setRemoveTarget] = useState<ExperimentItemWithDetails | null>(
     null
   );
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -115,9 +127,62 @@ export function ExperimentDetailView() {
     );
   }
 
-  const isReadOnly = experiment.status === "finished" || experiment.status === "cancelled" || !isOwner;
+  const canEditItems = isOwner || isParticipant;
+  const isFinishedOrCancelled =
+    experiment.status === "finished" || experiment.status === "cancelled";
+  // Item add/remove: owner + approved participants.
+  const isReadOnly = isFinishedOrCancelled || !canEditItems;
+  // Sessions (continue/close) and finishing: owner-only, unchanged from before.
+  const canManageSessions = isOwner && !isFinishedOrCancelled;
   const activeItems = experiment.items.filter((it) => it.status === "active");
-  const companions = experiment.participants;
+  const companions = experiment.participants.filter((p) => p.status === "approved");
+
+  const handleStartEditDescription = () => {
+    setDescriptionDraft(experiment.description || "");
+    setEditingDescription(true);
+  };
+
+  const handleSaveDescription = async () => {
+    try {
+      await updateDescription(descriptionDraft);
+      setEditingDescription(false);
+      toast({ title: "Descripción actualizada" });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo actualizar la descripción",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePhotoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      await uploadPhoto(file);
+      toast({ title: "Foto actualizada" });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo subir la foto",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStageChange = async (stage: "montaje" | "toma_datos") => {
+    try {
+      await updateStage(stage);
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo actualizar el estado",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleContinue = async (startedAt: string, endedAtPlanned: string) => {
     await createSession(startedAt, endedAtPlanned);
@@ -186,25 +251,142 @@ export function ExperimentDetailView() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Photo */}
+        <div className="relative w-full h-56 sm:h-72 rounded-lg overflow-hidden bg-muted border border-border">
+          {experiment.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={experiment.photo_url}
+              alt={experiment.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+              Sin fotografía
+            </div>
+          )}
+          {isOwner && (
+            <>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoSelected}
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                className="absolute bottom-3 right-3"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={actionLoading}
+              >
+                <Camera className="h-4 w-4" />
+                {experiment.photo_url ? "Cambiar foto" : "Agregar foto"}
+              </Button>
+            </>
+          )}
+        </div>
+
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-3xl font-bold">{experiment.title}</h1>
-              <ExperimentStatusBadge status={experiment.status} />
+              <ExperimentStatusBadge status={experiment.status} stage={experiment.stage} />
             </div>
-            {experiment.description && (
-              <p className="text-muted-foreground mt-2">{experiment.description}</p>
+
+            {isOwner && experiment.status === "in_progress" && (
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-xs text-muted-foreground">Fase:</span>
+                <Button
+                  size="sm"
+                  variant={experiment.stage !== "toma_datos" ? "default" : "outline"}
+                  onClick={() => handleStageChange("montaje")}
+                  disabled={actionLoading}
+                >
+                  En montaje
+                </Button>
+                <Button
+                  size="sm"
+                  variant={experiment.stage === "toma_datos" ? "default" : "outline"}
+                  onClick={() => handleStageChange("toma_datos")}
+                  disabled={actionLoading}
+                >
+                  En toma de datos
+                </Button>
+              </div>
             )}
+
+            {/* Description — viewable by anyone, editable only by the owner,
+                at any point in the experiment's lifecycle. */}
+            <div className="mt-3">
+              {editingDescription ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={descriptionDraft}
+                    onChange={(e) => setDescriptionDraft(e.target.value)}
+                    rows={5}
+                    placeholder="Describe qué se está haciendo en este experimento..."
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveDescription} disabled={actionLoading}>
+                      <Check className="h-4 w-4" />
+                      Guardar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingDescription(false)}
+                      disabled={actionLoading}
+                    >
+                      <X className="h-4 w-4" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  {experiment.description ? (
+                    <p className="text-muted-foreground whitespace-pre-wrap">
+                      {experiment.description}
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground italic text-sm">
+                      Sin descripción todavía.
+                    </p>
+                  )}
+                  {isOwner && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleStartEditDescription}
+                      className="shrink-0"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {isReadOnly && (
+        {!canEditItems && !isFinishedOrCancelled && (
           <div className="p-4 rounded-lg border bg-muted/50">
             <p className="text-sm text-muted-foreground">
-              {!isOwner
-                ? "Solo puedes consultar este experimento en modo lectura porque no eres la persona a cargo."
-                : "Este experimento ya finalizó y se muestra en modo solo lectura."}
+              Estás viendo este experimento en modo lectura porque no eres la persona a cargo
+              ni un colaborador aprobado. Puedes ver la información, el inventario en uso y
+              solicitar acompañarlo desde &quot;Acompañar Experimento&quot;.
+            </p>
+          </div>
+        )}
+
+        {isFinishedOrCancelled && (
+          <div className="p-4 rounded-lg border bg-muted/50">
+            <p className="text-sm text-muted-foreground">
+              Este experimento ya finalizó y se muestra en modo solo lectura.
             </p>
           </div>
         )}
@@ -280,7 +462,7 @@ export function ExperimentDetailView() {
               </CardContent>
             </Card>
 
-            {!isReadOnly && experiment.status === "in_progress" && (
+            {canManageSessions && experiment.status === "in_progress" && (
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   onClick={() => setShowContinueDialog(true)}
@@ -352,7 +534,7 @@ export function ExperimentDetailView() {
                             ) : (
                               <Badge variant="outline">Cerrada</Badge>
                             )}
-                            {isOpen && !isReadOnly && (
+                            {isOpen && canManageSessions && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -473,7 +655,7 @@ export function ExperimentDetailView() {
         </Tabs>
 
         {/* Finish button */}
-        {!isReadOnly && (
+        {canManageSessions && (
           <div className="pt-4 border-t flex justify-end">
             <Button
               variant="destructive"

@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+/* Global typography scale, doubled from Tailwind's defaults per explicit
+   product decision (readability across the lab). Only font-size is
+   overridden — each --text-*--line-height stays as Tailwind's original
+   unitless ratio (e.g. calc(1.5 / 1) for base), so line-height scales
+   proportionally with font-size automatically. Spacing/padding/gap use a
+   separate --spacing scale and are intentionally untouched, so buttons,
+   cards, and layout gaps keep their original proportions — only the type
+   itself doubles in size. */
+@theme {
+  --text-xs: 1.5rem;
+  --text-sm: 1.75rem;
+  --text-base: 2rem;
+  --text-lg: 2.25rem;
+  --text-xl: 2.5rem;
+  --text-2xl: 3rem;
+  --text-3xl: 3.75rem;
+  --text-4xl: 4.5rem;
+  --text-5xl: 6rem;
+  --text-6xl: 7.5rem;
+  --text-7xl: 9rem;
+  --text-8xl: 12rem;
+  --text-9xl: 16rem;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {

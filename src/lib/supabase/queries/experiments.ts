@@ -203,6 +203,7 @@ export async function getCurrentProfile() {
 export async function createExperiment(data: {
   title: string;
   owner_id: string;
+  description?: string;
   fecha_inicio?: string;
   fecha_fin_tentativa?: string;
 }) {
@@ -219,6 +220,7 @@ export async function createExperiment(data: {
     .insert({
       title: data.title,
       owner_id: data.owner_id,
+      description: data.description || null,
       created_by: user.id,
       status: "draft",
       fecha_inicio: data.fecha_inicio,
@@ -425,7 +427,7 @@ export async function createExperimentSession(data: {
 export async function startExperiment(experiment_id: string) {
   const { data: experiment, error } = await ((supabase as any)
     .from("experiments")
-    .update({ status: "in_progress" })
+    .update({ status: "in_progress", stage: "montaje" })
     .eq("id", experiment_id)
     .select()
     .single() as any);
@@ -1055,4 +1057,181 @@ export async function getExperimentItemShares(
     map.set(row.experiment_item_id, list);
   }
   return map;
+}
+
+// ===========================================================================
+// Public experiment directory — every registered user can browse every
+// experiment (photo, title, owner, collaborators, stage/status, item count).
+// Editing remains restricted to the owner and approved participants (RLS).
+// ===========================================================================
+
+export interface PublicExperimentSummary extends Experiment {
+  owner?: Profile;
+  approved_participants: Profile[];
+  items_count: number;
+}
+
+/**
+ * Get every experiment in the system (any status), newest-updated first,
+ * enriched with owner profile, approved collaborators, and active item count.
+ */
+export async function getAllExperiments(): Promise<PublicExperimentSummary[]> {
+  const { data, error } = await supabase
+    .from("experiments")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching all experiments:", error);
+    throw new Error(
+      `Failed to fetch experiments: ${error.message || "Unknown error"}`
+    );
+  }
+
+  const experiments = (data as Experiment[]) || [];
+  if (experiments.length === 0) return [];
+
+  const experimentIds = experiments.map((e) => e.id);
+
+  const [participantsRes, itemCounts, profilesRes] = await Promise.all([
+    supabase
+      .from("experiment_participants")
+      .select("experiment_id, user_id")
+      .in("experiment_id", experimentIds)
+      .eq("status", "approved"),
+    getActiveItemCounts(experimentIds),
+    supabase
+      .from("profiles")
+      .select("*")
+      .in("id", [...new Set(experiments.map((e) => e.owner_id))]),
+  ]);
+
+  if (participantsRes.error) {
+    console.error("Error fetching participants:", participantsRes.error);
+  }
+
+  const profiles = (profilesRes.data as Profile[]) || [];
+  const participantRows = (participantsRes.data as any[]) || [];
+
+  // Resolve participant profiles too — collect any ids not already fetched.
+  const participantUserIds = [...new Set(participantRows.map((p) => p.user_id))];
+  const missingIds = participantUserIds.filter(
+    (id) => !profiles.some((p) => p.id === id)
+  );
+  let allProfiles = profiles;
+  if (missingIds.length > 0) {
+    const { data: extra } = await supabase
+      .from("profiles")
+      .select("*")
+      .in("id", missingIds);
+    allProfiles = [...profiles, ...((extra as Profile[]) || [])];
+  }
+
+  return experiments.map((exp) => ({
+    ...exp,
+    owner: allProfiles.find((p) => p.id === exp.owner_id),
+    approved_participants: participantRows
+      .filter((p) => p.experiment_id === exp.id)
+      .map((p) => allProfiles.find((pr) => pr.id === p.user_id))
+      .filter((p): p is Profile => !!p),
+    items_count: itemCounts.get(exp.id) || 0,
+  }));
+}
+
+/**
+ * Update an experiment's free-text description. Owner-only, can be called
+ * at any point in the experiment's lifecycle (creation, while in progress,
+ * or after finishing) — not just at creation time.
+ */
+export async function updateExperimentDescription(
+  id: string,
+  description: string
+): Promise<Experiment> {
+  await requireOwnedExperiment(id);
+
+  const { data, error } = await ((supabase as any)
+    .from("experiments")
+    .update({ description, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single() as any);
+
+  if (error) {
+    console.error("Error updating experiment description:", error);
+    throw new Error(
+      `Failed to update description: ${error.message || "Unknown error"}`
+    );
+  }
+
+  return data as Experiment;
+}
+
+/**
+ * Update an experiment's stage (montaje / toma_datos). Only meaningful while
+ * status = 'in_progress'; owner-only.
+ */
+export async function updateExperimentStage(
+  id: string,
+  stage: "montaje" | "toma_datos"
+): Promise<Experiment> {
+  await requireOwnedExperiment(id);
+
+  const { data, error } = await ((supabase as any)
+    .from("experiments")
+    .update({ stage, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single() as any);
+
+  if (error) {
+    console.error("Error updating experiment stage:", error);
+    throw new Error(
+      `Failed to update stage: ${error.message || "Unknown error"}`
+    );
+  }
+
+  return data as Experiment;
+}
+
+/**
+ * Upload (or replace) an experiment's photo to the "experiment-photos"
+ * bucket and point experiments.photo_url at its public URL. Owner-only.
+ */
+export async function uploadExperimentPhoto(
+  id: string,
+  file: File
+): Promise<string> {
+  await requireOwnedExperiment(id);
+
+  const ext = file.name.split(".").pop() || "jpg";
+  const storagePath = `${id}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("experiment-photos")
+    .upload(storagePath, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) {
+    console.error("Error uploading experiment photo:", uploadError);
+    throw new Error(
+      `Failed to upload photo: ${uploadError.message || "Unknown error"}`
+    );
+  }
+
+  const { data } = supabase.storage
+    .from("experiment-photos")
+    .getPublicUrl(storagePath);
+
+  const { error: updateError } = await ((supabase as any)
+    .from("experiments")
+    .update({ photo_url: data.publicUrl, updated_at: new Date().toISOString() })
+    .eq("id", id) as any);
+
+  if (updateError) {
+    console.error("Error saving photo_url:", updateError);
+    throw new Error(
+      `Failed to save photo: ${updateError.message || "Unknown error"}`
+    );
+  }
+
+  return data.publicUrl;
 }

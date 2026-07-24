@@ -8,6 +8,7 @@ export type WizardStep = 1 | 2 | 3 | 4 | 5;
 export interface FormData {
   title: string;
   owner_id: string;
+  description: string;
   companion_ids: string[];
   legalAccepted: boolean;
   fecha_inicio?: string;
@@ -29,6 +30,7 @@ export function useExperimentWizard() {
     formData: {
       title: "",
       owner_id: "",
+      description: "",
       companion_ids: [],
       legalAccepted: false,
     },
