@@ -55,17 +55,18 @@ jobs:
       - name: Check required secrets
         run: |
           missing=0
-          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
-            echo "::error::Falta el secret NEXT_PUBLIC_SUPABASE_URL"
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}${{ vars.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "::error::Falta NEXT_PUBLIC_SUPABASE_URL (ni como secret ni como variable)"
             missing=1
           fi
-          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" ]; then
-            echo "::error::Falta el secret NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::Falta NEXT_PUBLIC_SUPABASE_ANON_KEY (ni como secret ni como variable)"
             missing=1
           fi
           if [ "$missing" = "1" ]; then
-            echo "Configúralos en: Settings -> Secrets and variables -> Actions -> New repository secret"
-            echo "Los nombres deben coincidir EXACTAMENTE (mayúsculas y guiones bajos)."
+            echo "Settings -> Secrets and variables -> Actions"
+            echo "Deben ser de REPOSITORIO (pestana 'Secrets' o 'Variables'), NO de environment:"
+            echo "un secret creado dentro del environment 'github-pages' NO es visible para el job build."
             exit 1
           fi
           echo "Ambos secrets están configurados."
@@ -74,8 +75,11 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Estos valores son públicos por diseño (se incrustan en el bundle del
+          # navegador), así que sirven igual como secret o como variable de
+          # repositorio. Aceptar ambos evita el error más común de configuración.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       # GitHub Pages runs Jekyll by default, and Jekyll ignores any directory
       # starting with an underscore — which would drop the whole /_next folder
