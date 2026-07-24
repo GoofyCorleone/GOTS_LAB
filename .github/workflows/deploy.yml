@@ -56,6 +56,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
+      # GitHub Pages runs Jekyll by default, and Jekyll ignores any directory
+      # starting with an underscore — which would drop the whole /_next folder
+      # (all CSS and JS). Without this the site deploys but renders unstyled.
+      - name: Disable Jekyll processing
+        run: touch ./out/.nojekyll
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

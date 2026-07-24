@@ -356,7 +356,7 @@ export async function getExperimentsInProgress(
   const owners = (ownersRes.data as Profile[]) || [];
   const participationByExperiment = new Map<string, ParticipationStatus>();
   for (const row of (participationRes.data as ExperimentParticipant[]) || []) {
-    participationByExperiment.set(row.experiment_id, row.status);
+    participationByExperiment.set(row.experiment_id, row.status as ParticipationStatus);
   }
 
   return experiments.map((exp) => ({
@@ -387,7 +387,7 @@ export async function createAccessRequest(
   // atomic guarantee that a request cannot target a non-in-progress experiment.
   const { data: experiment, error: expError } = await supabase
     .from("experiments")
-    .select("id, status")
+    .select("id, status, owner_id")
     .eq("id", experimentId)
     .single();
 
@@ -401,7 +401,16 @@ export async function createAccessRequest(
 
   if ((experiment as Experiment).status !== "in_progress") {
     throw new Error(
-      "Access can only be requested for experiments that are in progress"
+      "Solo se puede solicitar acceso a experimentos en curso"
+    );
+  }
+
+  // You already run this experiment — there is nothing to request.
+  // RLS (experiment_participants_insert_by_user) enforces this atomically;
+  // checked here for a friendly message.
+  if ((experiment as Experiment).owner_id === requestedBy) {
+    throw new Error(
+      "No puedes solicitar acompañar un experimento del que ya eres la persona a cargo"
     );
   }
 

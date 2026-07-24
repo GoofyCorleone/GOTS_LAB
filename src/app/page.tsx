@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/lib/assets";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ export default function HomePage() {
         <div className="container mx-auto text-center">
           <div className="flex flex-row flex-nowrap items-center justify-center gap-[2vw] mb-6">
             <video
-              src="/videos/logo.mp4"
+              src={asset("/videos/logo.mp4")}
               autoPlay
               loop
               muted

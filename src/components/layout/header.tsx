@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/lib/assets";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Menu, X, LogOut, Bug } from "lucide-react";
@@ -45,7 +46,7 @@ export function Header() {
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center">
             <video
-              src="/videos/logo.mp4"
+              src={asset("/videos/logo.mp4")}
               autoPlay
               loop
               muted
@@ -58,17 +59,13 @@ export function Header() {
           <nav className="hidden md:flex items-center gap-8">
             <Link
               href="/"
-              className={`text-sm font-medium transition-colors ${
-                "text-foreground hover:text-gold"
-              }`}
+              className="text-sm font-medium transition-colors text-foreground hover:text-gold"
             >
               Inicio
             </Link>
             <Link
               href="/inventory"
-              className={`text-sm font-medium transition-colors ${
-                "text-foreground hover:text-gold"
-              }`}
+              className="text-sm font-medium transition-colors text-foreground hover:text-gold"
             >
               Inventario
             </Link>
@@ -77,34 +74,26 @@ export function Header() {
               <>
                 <Link
                   href="/experiments"
-                  className={`text-sm font-medium transition-colors ${
-                    "text-foreground hover:text-gold"
-                  }`}
+                  className="text-sm font-medium transition-colors text-foreground hover:text-gold"
                 >
                   Experimentos
                 </Link>
                 <Link
                   href="/accompany"
-                  className={`text-sm font-medium transition-colors ${
-                    "text-foreground hover:text-gold"
-                  }`}
+                  className="text-sm font-medium transition-colors text-foreground hover:text-gold"
                 >
                   Acompañar
                 </Link>
                 <Link
                   href="/profile"
-                  className={`text-sm font-medium transition-colors ${
-                    "text-foreground hover:text-gold"
-                  }`}
+                  className="text-sm font-medium transition-colors text-foreground hover:text-gold"
                 >
                   Mi Perfil
                 </Link>
                 <Link
                   href="/report"
                   title="Reportar un error o bug"
-                  className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                    "text-foreground hover:text-gold"
-                  }`}
+                  className="text-sm font-medium transition-colors flex items-center gap-1.5 text-foreground hover:text-gold"
                 >
                   <Bug className="h-4 w-4" />
                   Reportar error
@@ -116,7 +105,6 @@ export function Header() {
                     variant="ghost"
                     size="sm"
                     onClick={handleSignOut}
-
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
@@ -127,7 +115,6 @@ export function Header() {
                 <Link href="/login">
                   <Button
                     variant="ghost"
-
                   >
                     Iniciar Sesión
                   </Button>

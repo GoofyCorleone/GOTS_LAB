@@ -72,7 +72,6 @@ export function ExperimentDetailView() {
     loading,
     error,
     actionLoading,
-    isOwner,
     isParticipant,
     addItem,
     removeItem,
@@ -134,13 +133,18 @@ export function ExperimentDetailView() {
     );
   }
 
-  const canEditItems = isOwner || isParticipant;
+  // Ownership is derived live from the current auth user. The hook computes
+  // isOwner when it loads, which can happen before useAuth resolves — leaving
+  // it momentarily false and, previously, showing the owner a "request access
+  // to accompany" button on their own experiment.
+  const isOwnerLive = !!user && experiment.owner_id === user.id;
+  const canEditItems = isOwnerLive || isParticipant;
   const isFinishedOrCancelled =
     experiment.status === "finished" || experiment.status === "cancelled";
   // Item add/remove: owner + approved participants.
   const isReadOnly = isFinishedOrCancelled || !canEditItems;
   // Sessions (continue/close) and finishing: owner-only, unchanged from before.
-  const canManageSessions = isOwner && !isFinishedOrCancelled;
+  const canManageSessions = isOwnerLive && !isFinishedOrCancelled;
   const activeItems = experiment.items.filter((it) => it.status === "active");
   const companions = experiment.participants.filter((p) => p.status === "approved");
   // Session numbers are assigned chronologically and are stable for everyone
@@ -165,7 +169,7 @@ export function ExperimentDetailView() {
 
   const myParticipation = experiment.participants.find((p) => p.user_id === user?.id);
   const canRequestAccess =
-    !isOwner && !myParticipation && experiment.status === "in_progress";
+    !!user && !isOwnerLive && !myParticipation && experiment.status === "in_progress";
 
   const handleRequestAccess = async () => {
     if (!user) return;
@@ -316,7 +320,7 @@ export function ExperimentDetailView() {
               Sin fotografía
             </div>
           )}
-          {isOwner && (
+          {isOwnerLive && (
             <>
               <input
                 ref={photoInputRef}
@@ -347,7 +351,7 @@ export function ExperimentDetailView() {
               <ExperimentStatusBadge status={experiment.status} stage={experiment.stage} />
             </div>
 
-            {isOwner && experiment.status === "in_progress" && (
+            {isOwnerLive && experiment.status === "in_progress" && (
               <div className="flex items-center gap-2 mt-3">
                 <span className="text-xs text-muted-foreground">Fase:</span>
                 <Button
@@ -408,7 +412,7 @@ export function ExperimentDetailView() {
                       Sin descripción todavía.
                     </p>
                   )}
-                  {isOwner && (
+                  {isOwnerLive && (
                     <Button
                       size="sm"
                       variant="ghost"
