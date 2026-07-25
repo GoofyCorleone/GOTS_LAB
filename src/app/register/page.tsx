@@ -36,6 +36,7 @@ export default function RegisterPage() {
   const [career, setCareer] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const emailIsValid = email ? isValidUISEmail(email) : true;
@@ -43,6 +44,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsDuplicateEmail(false);
 
     // Validations
     if (!emailIsValid) {
@@ -79,7 +81,9 @@ export default function RegisterPage() {
         router.push("/login?registered=true");
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Error al registrarse");
+      const message = err.message || "Error al registrarse";
+      setError(message);
+      setIsDuplicateEmail(message.includes("ya está registrado"));
     } finally {
       setLoading(false);
     }
@@ -212,7 +216,17 @@ export default function RegisterPage() {
             {(error || authError) && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive flex gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <div>{error || authError}</div>
+                <div>
+                  {error || authError}
+                  {isDuplicateEmail && (
+                    <>
+                      {" "}
+                      <Link href="/forgot-password" className="underline font-medium">
+                        ¿Olvidaste tu contraseña?
+                      </Link>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 

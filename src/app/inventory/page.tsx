@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { InventoryGrid } from "@/components/inventory/InventoryGrid";
 import { InventorySearch } from "@/components/inventory/InventorySearch";
 import { useInventory } from "@/hooks/useInventory";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
+import { getKitChildren, type InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
 
 export default function InventoryPage() {
   const {
@@ -15,16 +15,23 @@ export default function InventoryPage() {
     categories,
     selectedLocation,
     selectedCategory,
+    boxLabels,
+    unboxedCount,
+    boxLabelsLoading,
+    selectedBox,
     searchQuery,
     loading,
     error,
     setMode,
     setSelectedLocation,
     setSelectedCategory,
+    setSelectedBox,
     setSearchQuery,
   } = useInventory();
 
   const [selectedItem, setSelectedItem] = useState<InventoryItemWithAvailability | null>(null);
+  const [kitChildren, setKitChildren] = useState<InventoryItemWithAvailability[]>([]);
+  const [kitChildrenLoading, setKitChildrenLoading] = useState(false);
 
   const handleViewDetails = (item: InventoryItemWithAvailability) => {
     setSelectedItem(item);
@@ -33,6 +40,26 @@ export default function InventoryPage() {
   const closeModal = () => {
     setSelectedItem(null);
   };
+
+  useEffect(() => {
+    if (!selectedItem) {
+      setKitChildren([]);
+      return;
+    }
+    let cancelled = false;
+    setKitChildrenLoading(true);
+    getKitChildren(selectedItem.id)
+      .then((children) => {
+        if (!cancelled) setKitChildren(children);
+      })
+      .catch((err) => console.error("Error fetching kit children:", err))
+      .finally(() => {
+        if (!cancelled) setKitChildrenLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedItem]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -54,12 +81,17 @@ export default function InventoryPage() {
               mode={mode}
               selectedLocation={selectedLocation}
               selectedCategory={selectedCategory}
+              boxLabels={boxLabels}
+              unboxedCount={unboxedCount}
+              boxLabelsLoading={boxLabelsLoading}
+              selectedBox={selectedBox}
               searchQuery={searchQuery}
               locations={locations}
               categories={categories}
               onModeChange={setMode}
               onLocationChange={setSelectedLocation}
               onCategoryChange={setSelectedCategory}
+              onBoxChange={setSelectedBox}
               onSearchChange={setSearchQuery}
             />
           </div>
@@ -169,6 +201,47 @@ export default function InventoryPage() {
                     Descripción
                   </p>
                   <p className="text-sm">{selectedItem.description}</p>
+                </div>
+              )}
+
+              {kitChildrenLoading && (
+                <div className="text-sm text-muted-foreground">Cargando piezas del kit...</div>
+              )}
+
+              {kitChildren.length > 0 && (
+                <div className="pt-2 border-t">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">
+                    Piezas de este kit ({kitChildren.length})
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Este kit se reserva pieza por pieza, no como bloque. Para
+                    reservar una, agrégala desde el experimento con "Agregar
+                    Equipo".
+                  </p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {kitChildren.map((child) => (
+                      <div
+                        key={child.id}
+                        className="flex items-center justify-between text-sm px-2 py-1.5 rounded bg-muted/40"
+                      >
+                        <span>
+                          {child.name}
+                          {child.reference && (
+                            <span className="text-muted-foreground"> · {child.reference}</span>
+                          )}
+                        </span>
+                        <span
+                          className={
+                            child.quantity_available
+                              ? "text-green-600 dark:text-green-400 text-xs font-medium"
+                              : "text-red-600 dark:text-red-400 text-xs font-medium"
+                          }
+                        >
+                          {child.quantity_available ? "Disponible" : "Reservada"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

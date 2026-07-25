@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import { Loader2 } from "lucide-react";
 import { InventorySearch } from "@/components/inventory/InventorySearch";
 import { InventoryGrid } from "@/components/inventory/InventoryGrid";
 import { useInventory } from "@/hooks/useInventory";
-import type { InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
+import { getKitChildren, type InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
 import type { Profile } from "@/lib/supabase/queries/experiments";
 
 export interface AddItemPayload {
@@ -45,6 +45,9 @@ export function AddItemDialog({
   const inventory = useInventory();
   const [selectedItem, setSelectedItem] =
     useState<InventoryItemWithAvailability | null>(null);
+  const [kitChildren, setKitChildren] = useState<InventoryItemWithAvailability[]>([]);
+  const [kitChildrenLoading, setKitChildrenLoading] = useState(false);
+  const [kitPiece, setKitPiece] = useState<InventoryItemWithAvailability | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [sharingMode, setSharingMode] = useState<"individual" | "compartido">(
     "individual"
@@ -53,30 +56,69 @@ export function AddItemDialog({
   const [error, setError] = useState<string | null>(null);
 
   const otherUsers = allProfiles.filter((p) => p.id !== currentUserId);
+  // The item actually being reserved: a specific kit piece if one was
+  // chosen, otherwise the selected item itself.
+  const itemToReserve = kitPiece || selectedItem;
+
+  useEffect(() => {
+    if (!selectedItem) {
+      setKitChildren([]);
+      return;
+    }
+    let cancelled = false;
+    setKitChildrenLoading(true);
+    getKitChildren(selectedItem.id)
+      .then((children) => {
+        if (!cancelled) setKitChildren(children);
+      })
+      .catch((err) => console.error("Error fetching kit children:", err))
+      .finally(() => {
+        if (!cancelled) setKitChildrenLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedItem]);
 
   const handleSelectItem = (item: InventoryItemWithAvailability) => {
     setSelectedItem(item);
+    setKitPiece(null);
     setQuantity(1);
     setSharingMode("individual");
     setSharedWithUserId("");
     setError(null);
   };
 
+  const handleSelectKitPiece = (child: InventoryItemWithAvailability) => {
+    setKitPiece(child);
+    setQuantity(1);
+    setSharingMode("individual");
+    setSharedWithUserId("");
+    setError(null);
+  };
+
+  const handleBackToPieces = () => {
+    setKitPiece(null);
+    setError(null);
+  };
+
   const handleBackToSearch = () => {
     setSelectedItem(null);
+    setKitPiece(null);
     setError(null);
   };
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) {
       setSelectedItem(null);
+      setKitPiece(null);
       setError(null);
     }
     onOpenChange(nextOpen);
   };
 
   const handleAdd = async () => {
-    if (!selectedItem) return;
+    if (!itemToReserve) return;
     setError(null);
 
     if (quantity < 1) {
@@ -84,9 +126,9 @@ export function AddItemDialog({
       return;
     }
 
-    if (quantity > (selectedItem.quantity_available || 0)) {
+    if (quantity > (itemToReserve.quantity_available || 0)) {
       setError(
-        `No hay suficientes unidades disponibles. Disponible: ${selectedItem.quantity_available}`
+        `No hay suficientes unidades disponibles. Disponible: ${itemToReserve.quantity_available}`
       );
       return;
     }
@@ -98,7 +140,7 @@ export function AddItemDialog({
 
     try {
       await onAdd({
-        inventory_item_id: selectedItem.id,
+        inventory_item_id: itemToReserve.id,
         quantity,
         sharing_mode: sharingMode,
         shared_with_user_id:
@@ -126,12 +168,17 @@ export function AddItemDialog({
               mode={inventory.mode}
               selectedLocation={inventory.selectedLocation}
               selectedCategory={inventory.selectedCategory}
+              boxLabels={inventory.boxLabels}
+              unboxedCount={inventory.unboxedCount}
+              boxLabelsLoading={inventory.boxLabelsLoading}
+              selectedBox={inventory.selectedBox}
               searchQuery={inventory.searchQuery}
               locations={inventory.locations}
               categories={inventory.categories}
               onModeChange={inventory.setMode}
               onLocationChange={inventory.setSelectedLocation}
               onCategoryChange={inventory.setSelectedCategory}
+              onBoxChange={inventory.setSelectedBox}
               onSearchChange={inventory.setSearchQuery}
             />
             <InventoryGrid
@@ -140,13 +187,71 @@ export function AddItemDialog({
               onViewDetails={handleSelectItem}
             />
           </div>
-        ) : (
+        ) : kitChildrenLoading ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            Cargando piezas del kit...
+          </div>
+        ) : kitChildren.length > 0 && !kitPiece ? (
           <div className="space-y-4">
             <div>
               <p className="font-semibold">{selectedItem.name}</p>
-              {selectedItem.reference && (
+              <p className="text-sm text-muted-foreground">
+                Este kit se reserva pieza por pieza. Elige la lente exacta que
+                necesitas.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 max-h-96 overflow-y-auto">
+              {kitChildren.map((child) => {
+                const available = (child.quantity_available || 0) > 0;
+                return (
+                  <button
+                    key={child.id}
+                    type="button"
+                    disabled={!available}
+                    onClick={() => handleSelectKitPiece(child)}
+                    className={`w-full flex items-center justify-between text-left text-sm px-3 py-2 rounded-lg border transition-colors ${
+                      available
+                        ? "border-input hover:border-gold hover:bg-muted/50 cursor-pointer"
+                        : "border-input opacity-50 cursor-not-allowed"
+                    }`}
+                  >
+                    <span>
+                      {child.name}
+                      {child.reference && (
+                        <span className="text-muted-foreground"> · {child.reference}</span>
+                      )}
+                    </span>
+                    <span
+                      className={
+                        available
+                          ? "text-green-600 dark:text-green-400 text-xs font-medium flex-shrink-0"
+                          : "text-red-600 dark:text-red-400 text-xs font-medium flex-shrink-0"
+                      }
+                    >
+                      {available ? "Disponible" : "Reservada"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={handleBackToSearch}
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              Volver a buscar
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <p className="font-semibold">{itemToReserve?.name}</p>
+              {itemToReserve?.reference && (
                 <p className="text-sm text-muted-foreground">
-                  Ref: {selectedItem.reference}
+                  Ref: {itemToReserve.reference}
                 </p>
               )}
             </div>
@@ -155,7 +260,7 @@ export function AddItemDialog({
               <p className="text-sm font-medium">
                 Disponibilidad en tiempo real:{" "}
                 <span className="text-blue-600 dark:text-blue-400">
-                  {selectedItem.quantity_available} / {selectedItem.quantity_total}
+                  {itemToReserve?.quantity_available} / {itemToReserve?.quantity_total}
                 </span>
               </p>
             </div>
@@ -181,7 +286,7 @@ export function AddItemDialog({
                   id="add-item-quantity"
                   type="number"
                   min={1}
-                  max={selectedItem.quantity_available}
+                  max={itemToReserve?.quantity_available}
                   value={quantity}
                   onChange={(e) =>
                     setQuantity(Math.max(1, parseInt(e.target.value) || 1))
@@ -192,7 +297,7 @@ export function AddItemDialog({
                   type="button"
                   onClick={() =>
                     setQuantity((q) =>
-                      Math.min(selectedItem.quantity_available || 1, q + 1)
+                      Math.min(itemToReserve?.quantity_available || 1, q + 1)
                     )
                   }
                   variant="outline"
@@ -251,11 +356,11 @@ export function AddItemDialog({
             <div className="flex gap-2 pt-2">
               <Button
                 variant="outline"
-                onClick={handleBackToSearch}
+                onClick={kitPiece ? handleBackToPieces : handleBackToSearch}
                 className="flex-1"
                 disabled={isSubmitting}
               >
-                Volver a buscar
+                {kitPiece ? "Volver a las piezas" : "Volver a buscar"}
               </Button>
               <Button onClick={handleAdd} className="flex-1" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

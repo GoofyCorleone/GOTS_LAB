@@ -54,6 +54,7 @@ export async function getItemsByLocation(locationId: string) {
     .from("inventory_items")
     .select("*")
     .eq("location_id", locationId)
+    .is("kit_parent_id", null)
     .order("name", { ascending: true });
 
   if (itemsError) {
@@ -126,14 +127,51 @@ export async function getCategories() {
 }
 
 /**
+ * Get the distinct "caja" labels in use within a category (e.g. "Caja #1 de
+ * Lentes"), plus how many items have no box, so the UI can offer a box-level
+ * sub-navigation for categories that physically organize items into
+ * numbered boxes. Returns an empty array for categories with no boxes.
+ */
+export async function getBoxLabelsByCategory(category: string) {
+  const { data, error } = await supabase
+    .from("inventory_items")
+    .select("box_label")
+    .eq("category", category)
+    .is("kit_parent_id", null);
+
+  if (error) {
+    console.error("Error fetching box labels:", error);
+    throw new Error(
+      `Failed to fetch box labels: ${error.message || "Unknown error"}`
+    );
+  }
+
+  const rows = data || [];
+  const boxLabels = [
+    ...new Set(rows.map((r: any) => r.box_label as string | null).filter(Boolean) as string[]),
+  ].sort((a, b) => a.localeCompare(b, "es"));
+  const unboxedCount = rows.filter((r: any) => !r.box_label).length;
+
+  return { boxLabels, unboxedCount };
+}
+
+/**
  * Get all inventory items for a specific category
  */
-export async function getItemsByCategory(category: string) {
-  const { data: items, error: itemsError } = await supabase
+export async function getItemsByCategory(category: string, boxLabel?: string | null) {
+  let query = supabase
     .from("inventory_items")
     .select("*")
     .eq("category", category)
-    .order("name", { ascending: true });
+    .is("kit_parent_id", null);
+
+  if (boxLabel) {
+    query = query.eq("box_label", boxLabel);
+  } else if (boxLabel === null) {
+    query = query.is("box_label", null);
+  }
+
+  const { data: items, error: itemsError } = await query.order("name", { ascending: true });
 
   if (itemsError) {
     console.error("Error fetching items by category:", itemsError);
@@ -191,6 +229,7 @@ export async function searchItems(query: string) {
       type: "websearch",
       config: "spanish",
     })
+    .is("kit_parent_id", null)
     .order("name", { ascending: true });
 
   if (itemsError) {
@@ -201,6 +240,7 @@ export async function searchItems(query: string) {
       .from("inventory_items")
       .select("*")
       .or(`name.ilike.%${query}%,reference.ilike.%${query}%`)
+      .is("kit_parent_id", null)
       .order("name", { ascending: true });
 
     if (fallbackError) {
@@ -299,4 +339,43 @@ export async function getItemWithAvailability(itemId: string) {
     quantity_reserved: avail?.quantity_reserved || 0,
     quantity_available: avail?.quantity_available || (item as any).quantity_total,
   } as InventoryItemWithAvailability;
+}
+
+/**
+ * Get the individual pieces of a lens kit (e.g. the 10 lenses of Thorlabs
+ * LSC01-A), each with its own live availability, so a user can reserve a
+ * specific piece by reference instead of the whole kit.
+ */
+export async function getKitChildren(parentId: string) {
+  const { data: items, error: itemsError } = await supabase
+    .from("inventory_items")
+    .select("*")
+    .eq("kit_parent_id", parentId)
+    .order("name", { ascending: true });
+
+  if (itemsError) {
+    console.error("Error fetching kit children:", itemsError);
+    throw new Error(
+      `Failed to fetch kit children: ${itemsError.message || "Unknown error"}`
+    );
+  }
+
+  const { data: availability, error: availabilityError } = await (supabase.rpc(
+    "get_inventory_availability"
+  ) as any);
+
+  if (availabilityError) {
+    console.error("Error fetching availability:", availabilityError);
+  }
+
+  return (items || []).map((item: any) => {
+    const avail = (availability as any[])?.find(
+      (a: any) => a.inventory_item_id === item.id
+    );
+    return {
+      ...item,
+      quantity_reserved: avail?.quantity_reserved || 0,
+      quantity_available: avail?.quantity_available || item.quantity_total,
+    } as InventoryItemWithAvailability;
+  });
 }

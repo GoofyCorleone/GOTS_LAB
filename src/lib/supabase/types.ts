@@ -431,11 +431,13 @@ export type Database = {
       }
       inventory_items: {
         Row: {
+          box_label: string | null
           category: string | null
           created_at: string
           description: string | null
           id: string
           image_url: string | null
+          kit_parent_id: string | null
           location_id: string
           name: string
           quantity_total: number
@@ -443,11 +445,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          box_label?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
+          kit_parent_id?: string | null
           location_id: string
           name: string
           quantity_total: number
@@ -455,11 +459,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          box_label?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
+          kit_parent_id?: string | null
           location_id?: string
           name?: string
           quantity_total?: number
@@ -472,6 +478,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_kit_parent_id_fkey"
+            columns: ["kit_parent_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]

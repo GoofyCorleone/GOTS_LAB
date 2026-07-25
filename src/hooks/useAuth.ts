@@ -53,7 +53,55 @@ export function useAuth() {
       });
 
       if (error) throw error;
+
+      // Supabase responde 200 con un usuario "fantasma" (identities: [])
+      // en vez de un error cuando el correo ya existe y está confirmado
+      // (protección anti-enumeración) — sin este chequeo, un registro
+      // duplicado se ve como un registro exitoso.
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        const duplicateError = new Error(
+          "Este correo ya está registrado. Si es tuyo, inicia sesión o restablece tu contraseña."
+        );
+        setError(duplicateError.message);
+        throw duplicateError;
+      }
+
       return data;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const requestPasswordReset = async (email: string) => {
+    try {
+      setError(null);
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const confirmPasswordReset = async (
+    email: string,
+    token: string,
+    newPassword: string
+  ) => {
+    try {
+      setError(null);
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: "recovery",
+      });
+      if (verifyError) throw verifyError;
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updateError) throw updateError;
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -95,6 +143,8 @@ export function useAuth() {
     signUp,
     signIn,
     signOut,
+    requestPasswordReset,
+    confirmPasswordReset,
     isAuthenticated: !!user,
   };
 }

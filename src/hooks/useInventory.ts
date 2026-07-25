@@ -5,6 +5,7 @@ import {
   getLocationsByType,
   getItemsByLocation,
   getCategories,
+  getBoxLabelsByCategory,
   getItemsByCategory,
   searchItems,
   type InventoryItemWithAvailability,
@@ -15,6 +16,11 @@ type Location = Database["public"]["Tables"]["locations"]["Row"];
 
 export type SearchMode = "location" | "category" | "search";
 
+// Sentinel for "selected the box level, but chose the items that have no
+// box" — distinct from `selectedBox === null`, which means "no box chosen
+// yet" (still showing the box buttons, or the category has no boxes at all).
+export const UNBOXED_SENTINEL = "__unboxed__";
+
 export interface InventoryState {
   mode: SearchMode;
   items: InventoryItemWithAvailability[];
@@ -22,6 +28,10 @@ export interface InventoryState {
   categories: string[];
   selectedLocation: string | null;
   selectedCategory: string | null;
+  boxLabels: string[];
+  unboxedCount: number;
+  boxLabelsLoading: boolean;
+  selectedBox: string | null;
   searchQuery: string;
   loading: boolean;
   error: string | null;
@@ -35,6 +45,10 @@ export function useInventory() {
     categories: [],
     selectedLocation: null,
     selectedCategory: null,
+    boxLabels: [],
+    unboxedCount: 0,
+    boxLabelsLoading: false,
+    selectedBox: null,
     searchQuery: "",
     loading: true,
     error: null,
@@ -70,6 +84,42 @@ export function useInventory() {
     loadFilters();
   }, []);
 
+  // When a category is chosen, first check whether it has "caja" boxes
+  // (Lentes/Espejos/Retardadores/Divisores de haz today). If it does, wait
+  // for the user to pick a box before loading items; if not, behave exactly
+  // like before and load the full category item list immediately.
+  useEffect(() => {
+    if (state.mode !== "category" || !state.selectedCategory) {
+      return;
+    }
+
+    const loadBoxLabels = async () => {
+      try {
+        setState((prev) => ({ ...prev, boxLabelsLoading: true, items: [], error: null }));
+        const { boxLabels, unboxedCount } = await getBoxLabelsByCategory(
+          state.selectedCategory!
+        );
+        setState((prev) => ({
+          ...prev,
+          boxLabels,
+          unboxedCount,
+          selectedBox: null,
+          boxLabelsLoading: false,
+        }));
+      } catch (error: any) {
+        console.error("Error loading box labels:", error);
+        setState((prev) => ({
+          ...prev,
+          boxLabels: [],
+          unboxedCount: 0,
+          boxLabelsLoading: false,
+        }));
+      }
+    };
+
+    loadBoxLabels();
+  }, [state.mode, state.selectedCategory]);
+
   // Load items based on mode and selection
   useEffect(() => {
     if (state.mode === "location" && state.selectedLocation) {
@@ -95,10 +145,24 @@ export function useInventory() {
 
       loadItemsByLocation();
     } else if (state.mode === "category" && state.selectedCategory) {
+      // Categories without boxes: load immediately, same as before.
+      // Categories with boxes: wait until a box (or "otros") is chosen.
+      const hasBoxes = state.boxLabels.length > 0;
+      if (hasBoxes && state.selectedBox === null) {
+        return;
+      }
+
+      const boxLabelParam =
+        !hasBoxes
+          ? undefined
+          : state.selectedBox === UNBOXED_SENTINEL
+            ? null
+            : state.selectedBox;
+
       const loadItemsByCategory = async () => {
         try {
           setState((prev) => ({ ...prev, loading: true, error: null }));
-          const items = await getItemsByCategory(state.selectedCategory!);
+          const items = await getItemsByCategory(state.selectedCategory!, boxLabelParam);
           setState((prev) => ({
             ...prev,
             items,
@@ -154,7 +218,14 @@ export function useInventory() {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [state.mode, state.selectedLocation, state.selectedCategory, state.searchQuery]);
+  }, [
+    state.mode,
+    state.selectedLocation,
+    state.selectedCategory,
+    state.boxLabels,
+    state.selectedBox,
+    state.searchQuery,
+  ]);
 
   const setMode = useCallback((mode: SearchMode) => {
     setState((prev) => ({
@@ -163,6 +234,9 @@ export function useInventory() {
       items: [],
       selectedLocation: null,
       selectedCategory: null,
+      boxLabels: [],
+      unboxedCount: 0,
+      selectedBox: null,
       searchQuery: "",
       error: null,
     }));
@@ -179,6 +253,16 @@ export function useInventory() {
     setState((prev) => ({
       ...prev,
       selectedCategory: category,
+      boxLabels: [],
+      unboxedCount: 0,
+      selectedBox: null,
+    }));
+  }, []);
+
+  const setSelectedBox = useCallback((box: string | null) => {
+    setState((prev) => ({
+      ...prev,
+      selectedBox: box,
     }));
   }, []);
 
@@ -194,6 +278,7 @@ export function useInventory() {
     setMode,
     setSelectedLocation,
     setSelectedCategory,
+    setSelectedBox,
     setSearchQuery,
   };
 }

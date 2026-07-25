@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import type { SearchMode } from "@/hooks/useInventory";
+import { UNBOXED_SENTINEL, type SearchMode } from "@/hooks/useInventory";
 import type { Database } from "@/lib/supabase/types";
 
 type Location = Database["public"]["Tables"]["locations"]["Row"];
@@ -10,12 +10,17 @@ interface InventorySearchProps {
   mode: SearchMode;
   selectedLocation: string | null;
   selectedCategory: string | null;
+  boxLabels?: string[];
+  unboxedCount?: number;
+  boxLabelsLoading?: boolean;
+  selectedBox?: string | null;
   searchQuery: string;
   locations: Location[];
   categories: string[];
   onModeChange: (mode: SearchMode) => void;
   onLocationChange: (locationId: string | null) => void;
   onCategoryChange: (category: string | null) => void;
+  onBoxChange?: (box: string | null) => void;
   onSearchChange: (query: string) => void;
 }
 
@@ -23,12 +28,17 @@ export function InventorySearch({
   mode,
   selectedLocation,
   selectedCategory,
+  boxLabels = [],
+  unboxedCount = 0,
+  boxLabelsLoading = false,
+  selectedBox = null,
   searchQuery,
   locations,
   categories,
   onModeChange,
   onLocationChange,
   onCategoryChange,
+  onBoxChange,
   onSearchChange,
 }: InventorySearchProps) {
   // Group locations by type
@@ -126,6 +136,49 @@ export function InventorySearch({
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Box Selection (only for categories physically organized into cajas) */}
+      {mode === "category" && selectedCategory && !boxLabelsLoading && boxLabels.length > 0 && (
+        <div className="space-y-2">
+          <p className="block text-sm font-medium">
+            Selecciona una caja de "{selectedCategory}"
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {boxLabels.map((box) => {
+              const isSelected = selectedBox === box;
+              return (
+                <button
+                  key={box}
+                  type="button"
+                  onClick={() => onBoxChange?.(isSelected ? null : box)}
+                  className={`min-h-20 px-4 py-3 rounded-lg border-2 text-sm font-semibold text-center transition-colors flex items-center justify-center ${
+                    isSelected
+                      ? "border-gold bg-gold-subtle text-gold"
+                      : "border-input bg-card hover:border-gold hover:bg-muted/50"
+                  }`}
+                >
+                  {box}
+                </button>
+              );
+            })}
+            {unboxedCount > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  onBoxChange?.(selectedBox === UNBOXED_SENTINEL ? null : UNBOXED_SENTINEL)
+                }
+                className={`min-h-20 px-4 py-3 rounded-lg border-2 text-sm font-semibold text-center transition-colors flex items-center justify-center ${
+                  selectedBox === UNBOXED_SENTINEL
+                    ? "border-gold bg-gold-subtle text-gold"
+                    : "border-input bg-card hover:border-gold hover:bg-muted/50"
+                }`}
+              >
+                Otros elementos de {selectedCategory}
+              </button>
+            )}
           </div>
         </div>
       )}
