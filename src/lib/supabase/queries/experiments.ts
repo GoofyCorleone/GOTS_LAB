@@ -112,6 +112,46 @@ async function requireOwnedExperiment(experimentId: string) {
   return experiment as Experiment;
 }
 
+/** Fetch an experiment and assert the current user is either its owner or an
+ *  approved participant (companion) — the permission level shared by both
+ *  for managing reserved inventory. RLS is the source of truth; this adds
+ *  friendly errors. */
+async function requireOwnerOrParticipant(experimentId: string) {
+  const user = await requireUser();
+
+  const { data: experiment, error } = await supabase
+    .from("experiments")
+    .select("*")
+    .eq("id", experimentId)
+    .single();
+
+  if (error || !experiment) {
+    throw new Error(
+      `Experiment not found or access denied: ${error?.message || "not found"}`
+    );
+  }
+
+  if ((experiment as Experiment).owner_id === user.id) {
+    return experiment as Experiment;
+  }
+
+  const { data: participation } = await supabase
+    .from("experiment_participants")
+    .select("id")
+    .eq("experiment_id", experimentId)
+    .eq("user_id", user.id)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (!participation) {
+    throw new Error(
+      "Only the experiment owner or an approved collaborator can perform this action"
+    );
+  }
+
+  return experiment as Experiment;
+}
+
 /** Load the live availability map (inventory_item_id -> availability row). */
 async function fetchAvailabilityMap() {
   const { data, error } = await (supabase.rpc(
@@ -697,7 +737,7 @@ export async function addExperimentItems(
     return [];
   }
 
-  const experiment = await requireOwnedExperiment(experimentId);
+  const experiment = await requireOwnerOrParticipant(experimentId);
 
   if (experiment.status !== "in_progress" && experiment.status !== "draft") {
     throw new Error(
@@ -744,14 +784,22 @@ export async function addExperimentItems(
 
 /**
  * Remove a reserved item from an experiment. Only items with status='active'
- * may be removed; returned items are historical. Owner-only (RLS delete policy
- * added in the Phase 4 migration also enforces this).
+ * may be removed; returned items are historical. Owner or approved
+ * participant (RLS update policy also enforces it).
+ *
+ * Soft delete (status -> 'returned', returned_at stamped) rather than a hard
+ * DELETE, so the row survives as history — reviewing a past session can show
+ * which equipment was in use during it, computed from reserved_at/
+ * returned_at (see ExperimentDetailView). A partial unique index
+ * (experiment_items_active_unique, status='active' only) still prevents two
+ * simultaneous active reservations of the same item, while allowing it to be
+ * re-added later without colliding with its own history.
  */
 export async function removeExperimentItem(itemId: string): Promise<void> {
   await requireUser();
 
-  // Verify the item exists and is still active before deleting, so we can
-  // give a precise error instead of a silent 0-row delete.
+  // Verify the item exists and is still active before updating, so we can
+  // give a precise error instead of a silent 0-row update.
   const { data: item, error: fetchError } = await supabase
     .from("experiment_items")
     .select("*")
@@ -768,12 +816,12 @@ export async function removeExperimentItem(itemId: string): Promise<void> {
     throw new Error("Only active items can be removed");
   }
 
-  // Owner check (defense in depth; RLS delete policy also enforces it).
-  await requireOwnedExperiment((item as ExperimentItem).experiment_id);
+  // Owner-or-participant check (defense in depth; RLS also enforces it).
+  await requireOwnerOrParticipant((item as ExperimentItem).experiment_id);
 
   const { error, count } = await (supabase
     .from("experiment_items")
-    .delete({ count: "exact" })
+    .update({ status: "returned", returned_at: new Date().toISOString() }, { count: "exact" })
     .eq("id", itemId)
     .eq("status", "active") as any);
 

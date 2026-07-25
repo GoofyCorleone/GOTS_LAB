@@ -34,18 +34,22 @@ export function useAuth() {
   const signUp = async (
     email: string,
     password: string,
-    fullName: string,
+    firstName: string,
+    lastName: string,
     memberStatus: string,
     career: string
   ) => {
     try {
       setError(null);
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
             member_status: memberStatus,
             career,
           },

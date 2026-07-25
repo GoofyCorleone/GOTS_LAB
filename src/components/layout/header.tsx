@@ -7,12 +7,34 @@ import { Menu, X, LogOut, Bug } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/accompany/NotificationBell";
+import { getCurrentProfile } from "@/lib/supabase/queries/experiments";
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, signOut } = useAuth();
+  const [displayName, setDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setDisplayName(null);
+      return;
+    }
+    let cancelled = false;
+    getCurrentProfile()
+      .then((profile: any) => {
+        if (cancelled) return;
+        const firstName = profile.first_name?.split(" ")[0] || profile.full_name?.split(" ")[0];
+        const lastName = profile.last_name?.split(" ")[0] || profile.full_name?.split(" ")[1];
+        const name = [firstName, lastName].filter(Boolean).join(" ");
+        setDisplayName(name || null);
+      })
+      .catch((err) => console.error("Error fetching profile for header:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   // The header used to be transparent with white text until you scrolled —
   // a pattern inherited from the institutional site, which has a dark hero
@@ -100,7 +122,9 @@ export function Header() {
                 </Link>
                 <div className="flex items-center gap-3">
                   <NotificationBell />
-                  <span className="text-xs text-muted-foreground">{user?.email}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {displayName || user?.email}
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"

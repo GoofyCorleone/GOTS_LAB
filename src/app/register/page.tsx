@@ -31,7 +31,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [memberStatus, setMemberStatus] = useState("");
   const [career, setCareer] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,8 +63,13 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!fullName.trim()) {
-      setError("El nombre es requerido");
+    if (!firstName.trim()) {
+      setError("Los nombres son requeridos");
+      return;
+    }
+
+    if (!lastName.trim()) {
+      setError("Los apellidos son requeridos");
       return;
     }
 
@@ -75,7 +81,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await signUp(email, password, fullName, memberStatus, career);
+      await signUp(email, password, firstName, lastName, memberStatus, career);
       setSuccess(true);
       setTimeout(() => {
         router.push("/login?registered=true");
@@ -118,17 +124,31 @@ export default function RegisterPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Nombre Completo</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="Juan García"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                disabled={loading}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Nombres</Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  placeholder="Juan Carlos"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Apellidos</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  placeholder="García Pérez"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

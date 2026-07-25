@@ -564,8 +564,10 @@ export type Database = {
           career: string | null
           created_at: string
           email: string
+          first_name: string | null
           full_name: string | null
           id: string
+          last_name: string | null
           member_status: string
           role: string
           updated_at: string
@@ -575,8 +577,10 @@ export type Database = {
           career?: string | null
           created_at?: string
           email: string
+          first_name?: string | null
           full_name?: string | null
           id: string
+          last_name?: string | null
           member_status: string
           role?: string
           updated_at?: string
@@ -586,8 +590,10 @@ export type Database = {
           career?: string | null
           created_at?: string
           email?: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
           member_status?: string
           role?: string
           updated_at?: string

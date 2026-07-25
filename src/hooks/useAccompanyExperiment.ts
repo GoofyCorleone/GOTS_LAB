@@ -6,6 +6,7 @@ import {
   searchOwnersWithActiveExperiments,
   searchExperimentsByTitle,
   getExperimentsInProgress,
+  getExperimentsUserCollaboratesOn,
   createAccessRequest as createAccessRequestQuery,
   getAccessRequests,
   approveAccessRequest as approveAccessRequestQuery,
@@ -199,14 +200,57 @@ export function useAccompanyExperiment() {
     ? allExperiments.filter((e) => e.owner_id === selectedUser.id)
     : [];
 
+  // --- Experiments the selected person collaborates on (not owns) --------
+  const [collaboratingExperiments, setCollaboratingExperiments] = useState<
+    JoinableExperimentWithCount[]
+  >([]);
+  const [collaboratingLoading, setCollaboratingLoading] = useState(false);
+  const [collaboratingError, setCollaboratingError] = useState<string | null>(
+    null
+  );
+
+  const loadCollaboratingExperiments = useCallback(
+    async (collaboratorUserId: string) => {
+      if (!user) return;
+      try {
+        setCollaboratingLoading(true);
+        setCollaboratingError(null);
+        const joinable = await getExperimentsUserCollaboratesOn(
+          collaboratorUserId,
+          user.id
+        );
+        const counts = await getActiveItemCounts(joinable.map((e) => e.id));
+        setCollaboratingExperiments(
+          joinable.map((e) => ({ ...e, items_count: counts.get(e.id) || 0 }))
+        );
+      } catch (err: any) {
+        console.error("Error loading collaborating experiments:", err);
+        setCollaboratingError(
+          err.message || "No se pudieron cargar los experimentos"
+        );
+      } finally {
+        setCollaboratingLoading(false);
+      }
+    },
+    [user]
+  );
+
   const createAccessRequest = useCallback(
     async (experimentId: string) => {
       if (!user) throw new Error("Debes iniciar sesión");
       setProcessingExperimentId(experimentId);
       try {
         await createAccessRequestQuery(experimentId, user.id);
-        // Optimistically reflect the new pending status without a refetch.
+        // Optimistically reflect the new pending status without a refetch,
+        // in both lists a card for this experiment could be showing in.
         setAllExperiments((prev) =>
+          prev.map((e) =>
+            e.id === experimentId
+              ? { ...e, participation_status: "pending" as const }
+              : e
+          )
+        );
+        setCollaboratingExperiments((prev) =>
           prev.map((e) =>
             e.id === experimentId
               ? { ...e, participation_status: "pending" as const }
@@ -395,6 +439,12 @@ export function useAccompanyExperiment() {
     loadExperimentsInProgress,
     processingExperimentId,
     createAccessRequest,
+
+    // experiments the selected person collaborates on (not owns)
+    collaboratingExperiments,
+    collaboratingLoading,
+    collaboratingError,
+    loadCollaboratingExperiments,
 
     // search by experiment title
     experimentSearchQuery,

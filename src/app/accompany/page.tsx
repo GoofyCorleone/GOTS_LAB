@@ -34,6 +34,9 @@ export default function AccompanyPage() {
     processingExperimentId,
     loadExperimentsInProgress,
     createAccessRequest,
+    collaboratingExperiments,
+    collaboratingLoading,
+    loadCollaboratingExperiments,
     experimentSearchQuery,
     setExperimentSearchQuery,
     experimentSearchResults,
@@ -61,6 +64,9 @@ export default function AccompanyPage() {
 
   const handleViewExperiments = async () => {
     await loadExperimentsInProgress();
+    if (selectedUser) {
+      await loadCollaboratingExperiments(selectedUser.id);
+    }
     setShowExperiments(true);
   };
 
@@ -227,7 +233,7 @@ export default function AccompanyPage() {
         {searchMode === "persona" && selectedUser && !isSelf && showExperiments && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold">
-              Experimentos en curso de {selectedUser.full_name || selectedUser.email}
+              Experimentos a cargo de {selectedUser.full_name || selectedUser.email}
             </h2>
             <ExperimentsInProgressList
               experiments={experiments}
@@ -237,6 +243,26 @@ export default function AccompanyPage() {
             />
           </div>
         )}
+
+        {/* Experiments this person collaborates on (not owns) */}
+        {searchMode === "persona" &&
+          selectedUser &&
+          !isSelf &&
+          showExperiments &&
+          (collaboratingLoading || collaboratingExperiments.length > 0) && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">
+                Experimentos en los que colabora {selectedUser.full_name || selectedUser.email}
+              </h2>
+              <ExperimentsInProgressList
+                experiments={collaboratingExperiments}
+                loading={collaboratingLoading}
+                processingId={processingExperimentId}
+                onRequestAccess={setRequestTarget}
+                showOwner
+              />
+            </div>
+          )}
       </div>
 
       <AccessRequestDialog

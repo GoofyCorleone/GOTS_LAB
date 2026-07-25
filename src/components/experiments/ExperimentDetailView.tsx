@@ -677,6 +677,52 @@ export function ExperimentDetailView() {
                               </div>
                             )}
                           </div>
+
+                          {/* Inventory used during this session's time window
+                              (reserved before/during it, not yet returned or
+                              returned no earlier than it started) — computed
+                              here, not a separate query, since experiment.items
+                              already includes returned rows as history. */}
+                          <div className="pt-3 border-t">
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">
+                              Inventario usado en esta sesión
+                            </p>
+                            {(() => {
+                              const sessionEnd = session.ended_at_actual ?? new Date().toISOString();
+                              const itemsInSession = experiment.items.filter(
+                                (it) =>
+                                  it.reserved_at <= sessionEnd &&
+                                  (it.returned_at === null || it.returned_at >= session.started_at)
+                              );
+                              if (itemsInSession.length === 0) {
+                                return (
+                                  <p className="text-sm text-muted-foreground italic">
+                                    Sin equipos registrados en esta sesión.
+                                  </p>
+                                );
+                              }
+                              return (
+                                <ul className="space-y-1">
+                                  {itemsInSession.map((it) => (
+                                    <li
+                                      key={it.id}
+                                      className="flex items-center justify-between text-sm px-2 py-1 rounded bg-muted/40"
+                                    >
+                                      <span>
+                                        {it.inventory_item?.name || "—"}
+                                        <span className="text-muted-foreground"> × {it.quantity}</span>
+                                      </span>
+                                      {it.status === "returned" && (
+                                        <span className="text-xs text-muted-foreground shrink-0">
+                                          devuelto {formatDate(it.returned_at, true)}
+                                        </span>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              );
+                            })()}
+                          </div>
                         </div>
                       );
                     })}

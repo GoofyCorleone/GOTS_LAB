@@ -368,6 +368,88 @@ export async function getExperimentsInProgress(
 }
 
 /**
+ * 2b. List in-progress experiments where the given person is an *approved
+ *     collaborator* (not the owner) — the counterpart to
+ *     getExperimentsInProgress's "a cargo" list, for the "en los que
+ *     colabora" section on the Accompany page. Excludes experiments owned by
+ *     either the collaborator or the viewer, and annotates each with the
+ *     viewer's own participation status, same shape as
+ *     getExperimentsInProgress so both can share ExperimentsInProgressList.
+ */
+export async function getExperimentsUserCollaboratesOn(
+  collaboratorUserId: string,
+  viewerUserId: string
+): Promise<JoinableExperiment[]> {
+  const { data: approvedRows, error: approvedError } = await supabase
+    .from("experiment_participants")
+    .select("experiment_id")
+    .eq("user_id", collaboratorUserId)
+    .eq("status", "approved");
+
+  if (approvedError) {
+    console.error("Error fetching collaborations:", approvedError);
+    throw new Error(
+      `Failed to fetch collaborations: ${approvedError.message || "Unknown error"}`
+    );
+  }
+
+  const experimentIds = [
+    ...new Set((approvedRows || []).map((r: any) => r.experiment_id as string)),
+  ];
+  if (experimentIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("experiments")
+    .select("*")
+    .eq("status", "in_progress")
+    .neq("owner_id", collaboratorUserId)
+    .neq("owner_id", viewerUserId)
+    .in("id", experimentIds)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching collaborated experiments:", error);
+    throw new Error(
+      `Failed to fetch collaborated experiments: ${error.message || "Unknown error"}`
+    );
+  }
+
+  const experiments = (data as Experiment[]) || [];
+  if (experiments.length === 0) {
+    return [];
+  }
+
+  const ownerIds = [...new Set(experiments.map((e) => e.owner_id))];
+
+  const [ownersRes, participationRes] = await Promise.all([
+    supabase.from("profiles").select("*").in("id", ownerIds),
+    supabase
+      .from("experiment_participants")
+      .select("experiment_id, status")
+      .eq("user_id", viewerUserId)
+      .in(
+        "experiment_id",
+        experiments.map((e) => e.id)
+      ),
+  ]);
+
+  const owners = (ownersRes.data as Profile[]) || [];
+  const participationByExperiment = new Map<string, ParticipationStatus>();
+  for (const row of (participationRes.data as ExperimentParticipant[]) || []) {
+    participationByExperiment.set(row.experiment_id, row.status as ParticipationStatus);
+  }
+
+  return experiments.map((exp) => ({
+    ...exp,
+    owner: owners.find((o) => o.id === exp.owner_id),
+    participation_status:
+      participationByExperiment.get(exp.id) ?? ("none" as ParticipationStatus),
+  }));
+}
+
+/**
  * 3. Create an access request: insert an experiment_participants row with
  *    status='pending', source='requested_by_user'. The notify_access_request
  *    DB trigger fires atomically in the same statement, creating the owner's
