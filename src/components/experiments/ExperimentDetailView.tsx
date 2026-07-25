@@ -44,6 +44,7 @@ import {
   X,
   Camera,
   UserPlus,
+  ChevronDown,
 } from "lucide-react";
 
 function formatDate(value: string | null | undefined, withTime = false) {
@@ -98,6 +99,21 @@ export function ExperimentDetailView() {
   const [accessRequested, setAccessRequested] = useState(false);
   const [observationsSessionId, setObservationsSessionId] = useState<string | null>(null);
   const [observationsDraft, setObservationsDraft] = useState("");
+  const [expandedInventorySessions, setExpandedInventorySessions] = useState<Set<string>>(
+    new Set()
+  );
+
+  const toggleSessionInventory = (sessionId: string) => {
+    setExpandedInventorySessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -682,47 +698,63 @@ export function ExperimentDetailView() {
                               (reserved before/during it, not yet returned or
                               returned no earlier than it started) — computed
                               here, not a separate query, since experiment.items
-                              already includes returned rows as history. */}
-                          <div className="pt-3 border-t">
-                            <p className="text-xs font-semibold text-muted-foreground mb-2">
-                              Inventario usado en esta sesión
-                            </p>
-                            {(() => {
-                              const sessionEnd = session.ended_at_actual ?? new Date().toISOString();
-                              const itemsInSession = experiment.items.filter(
-                                (it) =>
-                                  it.reserved_at <= sessionEnd &&
-                                  (it.returned_at === null || it.returned_at >= session.started_at)
-                              );
-                              if (itemsInSession.length === 0) {
-                                return (
-                                  <p className="text-sm text-muted-foreground italic">
-                                    Sin equipos registrados en esta sesión.
-                                  </p>
-                                );
-                              }
-                              return (
-                                <ul className="space-y-1">
-                                  {itemsInSession.map((it) => (
-                                    <li
-                                      key={it.id}
-                                      className="flex items-center justify-between text-sm px-2 py-1 rounded bg-muted/40"
-                                    >
-                                      <span>
-                                        {it.inventory_item?.name || "—"}
-                                        <span className="text-muted-foreground"> × {it.quantity}</span>
-                                      </span>
-                                      {it.status === "returned" && (
-                                        <span className="text-xs text-muted-foreground shrink-0">
-                                          devuelto {formatDate(it.returned_at, true)}
-                                        </span>
-                                      )}
-                                    </li>
-                                  ))}
-                                </ul>
-                              );
-                            })()}
-                          </div>
+                              already includes returned rows as history.
+                              Collapsed by default; toggled per session. */}
+                          {(() => {
+                            const sessionEnd = session.ended_at_actual ?? new Date().toISOString();
+                            const itemsInSession = experiment.items.filter(
+                              (it) =>
+                                it.reserved_at <= sessionEnd &&
+                                (it.returned_at === null || it.returned_at >= session.started_at)
+                            );
+                            const isExpanded = expandedInventorySessions.has(session.id);
+                            return (
+                              <div className="pt-3 border-t">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSessionInventory(session.id)}
+                                  className="w-full flex items-center justify-between text-left"
+                                >
+                                  <span className="text-xs font-semibold text-muted-foreground">
+                                    Inventario usado en esta sesión ({itemsInSession.length})
+                                  </span>
+                                  <ChevronDown
+                                    className={`h-4 w-4 text-muted-foreground transition-transform ${
+                                      isExpanded ? "rotate-180" : ""
+                                    }`}
+                                  />
+                                </button>
+                                {isExpanded && (
+                                  <div className="mt-2">
+                                    {itemsInSession.length === 0 ? (
+                                      <p className="text-sm text-muted-foreground italic">
+                                        Sin equipos registrados en esta sesión.
+                                      </p>
+                                    ) : (
+                                      <ul className="space-y-1">
+                                        {itemsInSession.map((it) => (
+                                          <li
+                                            key={it.id}
+                                            className="flex items-center justify-between text-sm px-2 py-1 rounded bg-muted/40"
+                                          >
+                                            <span>
+                                              {it.inventory_item?.name || "—"}
+                                              <span className="text-muted-foreground"> × {it.quantity}</span>
+                                            </span>
+                                            {it.status === "returned" && (
+                                              <span className="text-xs text-muted-foreground shrink-0">
+                                                devuelto {formatDate(it.returned_at, true)}
+                                              </span>
+                                            )}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}

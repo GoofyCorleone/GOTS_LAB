@@ -10,25 +10,42 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, LogOut, AlertCircle, FlaskConical, Loader2, Camera } from "lucide-react";
+import {
+  Bell,
+  LogOut,
+  AlertCircle,
+  FlaskConical,
+  Loader2,
+  Camera,
+  Pencil,
+  Check,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   getExperimentsByOwner,
+  getMyCollaborations,
   getActiveItemCounts,
   getProfile,
   uploadAvatar,
+  updateProfileName,
   type Experiment,
   type ExperimentWithStats,
+  type ExperimentWithOwner,
   type Profile,
 } from "@/lib/supabase/queries/experiments";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
-function withCounts(
-  experiments: Experiment[],
+function withCounts<T extends Experiment>(
+  experiments: T[],
   counts: Map<string, number>
-): ExperimentWithStats[] {
+): (T & { items_count: number })[] {
   return experiments.map((e) => ({ ...e, items_count: counts.get(e.id) || 0 }));
 }
+
+type CollaborationWithStats = ExperimentWithOwner & { items_count: number };
 
 const MEMBER_STATUS_LABELS: Record<string, string> = {
   semillero: "Miembro semillero",
@@ -59,8 +76,19 @@ export default function ProfilePage() {
   const [experimentsLoading, setExperimentsLoading] = useState(true);
   const [experimentsError, setExperimentsError] = useState<string | null>(null);
 
+  const [collaboratingActive, setCollaboratingActive] = useState<CollaborationWithStats[]>([]);
+  const [collaboratingFinished, setCollaboratingFinished] = useState<CollaborationWithStats[]>(
+    []
+  );
+  const [collaboratingLoading, setCollaboratingLoading] = useState(true);
+  const [collaboratingError, setCollaboratingError] = useState<string | null>(null);
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [firstNameDraft, setFirstNameDraft] = useState("");
+  const [lastNameDraft, setLastNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,6 +104,30 @@ export default function ProfilePage() {
       toast.error(err.message || "No se pudo subir la foto");
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const startEditingName = () => {
+    setFirstNameDraft(profile?.first_name || "");
+    setLastNameDraft(profile?.last_name || "");
+    setEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!firstNameDraft.trim() || !lastNameDraft.trim()) {
+      toast.error("Los nombres y apellidos no pueden quedar vacíos");
+      return;
+    }
+    setSavingName(true);
+    try {
+      const updated = await updateProfileName(firstNameDraft, lastNameDraft);
+      setProfile(updated);
+      setEditingName(false);
+      toast.success("Nombre actualizado");
+    } catch (err: any) {
+      toast.error(err.message || "No se pudo actualizar el nombre");
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -114,6 +166,31 @@ export default function ProfilePage() {
     };
 
     load();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadCollaborations = async () => {
+      try {
+        setCollaboratingLoading(true);
+        setCollaboratingError(null);
+        const { active, finished } = await getMyCollaborations(user.id);
+        const counts = await getActiveItemCounts([
+          ...active.map((e) => e.id),
+          ...finished.map((e) => e.id),
+        ]);
+        setCollaboratingActive(withCounts(active, counts));
+        setCollaboratingFinished(withCounts(finished, counts));
+      } catch (err: any) {
+        console.error("Error loading collaborations:", err);
+        setCollaboratingError(err.message || "No se pudieron cargar las colaboraciones");
+      } finally {
+        setCollaboratingLoading(false);
+      }
+    };
+
+    loadCollaborations();
   }, [user]);
 
   useEffect(() => {
@@ -319,6 +396,35 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
+
+              <div className="mt-8 pt-8 border-t border-border">
+                <h3 className="text-lg font-bold mb-4">Mis Colaboraciones</h3>
+                {collaboratingLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : collaboratingError ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">{collaboratingError}</p>
+                ) : collaboratingActive.length === 0 && collaboratingFinished.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <FlaskConical className="w-10 h-10 text-muted-foreground mb-3 opacity-50" />
+                    <p className="text-sm text-muted-foreground">
+                      Todavía no colaboras en ningún experimento
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[...collaboratingActive, ...collaboratingFinished].map((experiment) => (
+                      <ExperimentCard
+                        key={experiment.id}
+                        experiment={experiment}
+                        variant="public"
+                        owner={experiment.owner}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </Card>
           </TabsContent>
 
@@ -375,8 +481,75 @@ export default function ProfilePage() {
                   <h3 className="font-semibold mb-2">Información de Cuenta</h3>
                   <div className="bg-muted/30 p-4 rounded-lg space-y-3 text-sm">
                     <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-muted-foreground">Nombre</p>
+                        {!editingName && (
+                          <button
+                            type="button"
+                            onClick={startEditingName}
+                            className="text-muted-foreground hover:text-foreground"
+                            aria-label="Editar nombre"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {editingName ? (
+                        <div className="mt-2 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="settings-firstName" className="text-xs">
+                                Nombres
+                              </Label>
+                              <Input
+                                id="settings-firstName"
+                                value={firstNameDraft}
+                                onChange={(e) => setFirstNameDraft(e.target.value)}
+                                disabled={savingName}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="settings-lastName" className="text-xs">
+                                Apellidos
+                              </Label>
+                              <Input
+                                id="settings-lastName"
+                                value={lastNameDraft}
+                                onChange={(e) => setLastNameDraft(e.target.value)}
+                                disabled={savingName}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleSaveName} disabled={savingName}>
+                              {savingName ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
+                              Guardar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingName(false)}
+                              disabled={savingName}
+                            >
+                              <X className="h-4 w-4" />
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-foreground">{profile?.full_name || "Sin definir"}</p>
+                      )}
+                    </div>
+                    <div>
                       <p className="text-muted-foreground">Correo</p>
                       <p className="font-mono text-foreground">{user?.email}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        El correo institucional no se puede modificar.
+                      </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">ID de Usuario</p>

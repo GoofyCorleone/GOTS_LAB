@@ -238,6 +238,49 @@ export async function getCurrentProfile() {
 }
 
 /**
+ * Update the current user's own first/last name (full_name is re-derived
+ * from them). Email, id and role stay untouched — the DB trigger
+ * `protect_profile_identity_columns` would reject any attempt to change
+ * those even if this function tried to.
+ */
+export async function updateProfileName(
+  firstName: string,
+  lastName: string
+): Promise<Profile> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+
+  const trimmedFirst = firstName.trim();
+  const trimmedLast = lastName.trim();
+
+  const { data, error } = await ((supabase as any)
+    .from("profiles")
+    .update({
+      first_name: trimmedFirst,
+      last_name: trimmedLast,
+      full_name: `${trimmedFirst} ${trimmedLast}`.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id)
+    .select()
+    .single() as any);
+
+  if (error) {
+    console.error("Error updating profile name:", error);
+    throw new Error(
+      `Failed to update profile: ${error.message || "Unknown error"}`
+    );
+  }
+
+  return data as Profile;
+}
+
+/**
  * Create a new experiment (status = draft)
  */
 export async function createExperiment(data: {
@@ -688,6 +731,89 @@ export async function getExperimentsByOwner(
       (e) => e.status === "draft" || e.status === "in_progress"
     ),
     finished: all.filter(
+      (e) => e.status === "finished" || e.status === "cancelled"
+    ),
+  };
+}
+
+/** An experiment enriched with its owner's profile — used for lists where
+ *  the viewer isn't the owner (e.g. "my collaborations"). */
+export interface ExperimentWithOwner extends Experiment {
+  owner?: Profile;
+}
+
+/** Grouped experiment lists for a collaborator. */
+export interface ExperimentsCollaboratedOn {
+  active: ExperimentWithOwner[];
+  finished: ExperimentWithOwner[];
+}
+
+/**
+ * Get all experiments where the given user is an *approved collaborator*
+ * (not the owner), split into active/finished like getExperimentsByOwner,
+ * each enriched with its owner's profile — for the "Mis colaboraciones"
+ * section of the profile page. RLS (experiment_participants_select_public_
+ * approved) already allows any authenticated user to read approved
+ * participant rows, so this needs no new policy.
+ */
+export async function getMyCollaborations(
+  userId: string
+): Promise<ExperimentsCollaboratedOn> {
+  const { data: approvedRows, error: approvedError } = await supabase
+    .from("experiment_participants")
+    .select("experiment_id")
+    .eq("user_id", userId)
+    .eq("status", "approved");
+
+  if (approvedError) {
+    console.error("Error fetching collaborations:", approvedError);
+    throw new Error(
+      `Failed to fetch collaborations: ${approvedError.message || "Unknown error"}`
+    );
+  }
+
+  const experimentIds = [
+    ...new Set((approvedRows || []).map((r: any) => r.experiment_id as string)),
+  ];
+  if (experimentIds.length === 0) {
+    return { active: [], finished: [] };
+  }
+
+  const { data, error } = await supabase
+    .from("experiments")
+    .select("*")
+    .in("id", experimentIds)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching collaborated experiments:", error);
+    throw new Error(
+      `Failed to fetch collaborated experiments: ${error.message || "Unknown error"}`
+    );
+  }
+
+  const experiments = (data as Experiment[]) || [];
+  if (experiments.length === 0) {
+    return { active: [], finished: [] };
+  }
+
+  const ownerIds = [...new Set(experiments.map((e) => e.owner_id))];
+  const { data: ownersData } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", ownerIds);
+  const owners = (ownersData as Profile[]) || [];
+
+  const withOwner: ExperimentWithOwner[] = experiments.map((e) => ({
+    ...e,
+    owner: owners.find((o) => o.id === e.owner_id),
+  }));
+
+  return {
+    active: withOwner.filter(
+      (e) => e.status === "draft" || e.status === "in_progress"
+    ),
+    finished: withOwner.filter(
       (e) => e.status === "finished" || e.status === "cancelled"
     ),
   };
