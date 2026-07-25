@@ -152,7 +152,7 @@ export async function getItemsByLocation(locationId: string) {
       ...item,
       location: location || undefined,
       quantity_reserved: avail?.quantity_reserved || 0,
-      quantity_available: avail?.quantity_available || item.quantity_total,
+      quantity_available: avail?.quantity_available ?? item.quantity_total,
     } as InventoryItemWithAvailability;
   });
 
@@ -261,7 +261,7 @@ export async function getItemsByCategory(category: string, boxLabel?: string | n
       ...item,
       location,
       quantity_reserved: avail?.quantity_reserved || 0,
-      quantity_available: avail?.quantity_available || item.quantity_total,
+      quantity_available: avail?.quantity_available ?? item.quantity_total,
     } as InventoryItemWithAvailability;
   });
 
@@ -340,7 +340,7 @@ export async function searchItems(query: string) {
       ...item,
       location,
       quantity_reserved: avail?.quantity_reserved || 0,
-      quantity_available: avail?.quantity_available || item.quantity_total,
+      quantity_available: avail?.quantity_available ?? item.quantity_total,
     } as InventoryItemWithAvailability;
   });
 
@@ -392,7 +392,7 @@ export async function getItemWithAvailability(itemId: string) {
     ...item,
     location: location || undefined,
     quantity_reserved: avail?.quantity_reserved || 0,
-    quantity_available: avail?.quantity_available || (item as any).quantity_total,
+    quantity_available: avail?.quantity_available ?? (item as any).quantity_total,
   } as InventoryItemWithAvailability;
 
   const [enriched] = await applyKitAggregates([withAvailability], availability);
@@ -433,7 +433,7 @@ export async function getKitChildren(parentId: string) {
     return {
       ...item,
       quantity_reserved: avail?.quantity_reserved || 0,
-      quantity_available: avail?.quantity_available || item.quantity_total,
+      quantity_available: avail?.quantity_available ?? item.quantity_total,
     } as InventoryItemWithAvailability;
   });
 }
