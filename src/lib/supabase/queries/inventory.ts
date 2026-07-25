@@ -21,6 +21,59 @@ export interface InventoryItemWithAvailability
 }
 
 /**
+ * A lens kit's own row has quantity_total=1 (it's a single physical case),
+ * which is meaningless once the kit is reserved lens-by-lens — showing
+ * "1 total / 1 disponible" for a 10-lens kit is wrong even when 9 of its
+ * lenses are actually reserved. For any item that has kit children,
+ * overrides quantity_total/reserved/available with the sum across its
+ * children (each child's own row already has the real per-lens numbers from
+ * `availability`) so every listing/detail view shows kit-aware counts.
+ */
+async function applyKitAggregates(
+  items: InventoryItemWithAvailability[],
+  availability: any[] | null | undefined
+): Promise<InventoryItemWithAvailability[]> {
+  const { data: children, error } = await supabase
+    .from("inventory_items")
+    .select("id, kit_parent_id")
+    .not("kit_parent_id", "is", null);
+
+  if (error || !children || children.length === 0) {
+    if (error) console.error("Error fetching kit children for aggregates:", error);
+    return items;
+  }
+
+  const childIdsByParent = new Map<string, string[]>();
+  for (const c of children as any[]) {
+    const list = childIdsByParent.get(c.kit_parent_id) || [];
+    list.push(c.id);
+    childIdsByParent.set(c.kit_parent_id, list);
+  }
+
+  const availById = new Map((availability || []).map((a: any) => [a.inventory_item_id, a]));
+
+  return items.map((item) => {
+    const childIds = childIdsByParent.get(item.id);
+    if (!childIds || childIds.length === 0) return item;
+
+    let total = 0;
+    let available = 0;
+    for (const childId of childIds) {
+      const a = availById.get(childId);
+      total += a?.quantity_total ?? 1;
+      available += a?.quantity_available ?? 1;
+    }
+
+    return {
+      ...item,
+      quantity_total: total,
+      quantity_available: available,
+      quantity_reserved: total - available,
+    };
+  });
+}
+
+/**
  * Get all locations grouped by type (cajon, armario)
  */
 export async function getLocationsByType(type?: "cajon" | "armario") {
@@ -103,7 +156,7 @@ export async function getItemsByLocation(locationId: string) {
     } as InventoryItemWithAvailability;
   });
 
-  return itemsWithAvailability;
+  return applyKitAggregates(itemsWithAvailability, availability);
 }
 
 /**
@@ -199,7 +252,7 @@ export async function getItemsByCategory(category: string, boxLabel?: string | n
     console.error("Error fetching availability:", availabilityError);
   }
 
-  return (items || []).map((item: any) => {
+  const itemsWithAvailability = (items || []).map((item: any) => {
     const location = (locations as any[])?.find((l: any) => l.id === item.location_id);
     const avail = (availability as any[])?.find(
       (a: any) => a.inventory_item_id === item.id
@@ -211,6 +264,8 @@ export async function getItemsByCategory(category: string, boxLabel?: string | n
       quantity_available: avail?.quantity_available || item.quantity_total,
     } as InventoryItemWithAvailability;
   });
+
+  return applyKitAggregates(itemsWithAvailability, availability);
 }
 
 /**
@@ -289,7 +344,7 @@ export async function searchItems(query: string) {
     } as InventoryItemWithAvailability;
   });
 
-  return itemsWithDetails;
+  return applyKitAggregates(itemsWithDetails, availability);
 }
 
 /**
@@ -333,12 +388,15 @@ export async function getItemWithAvailability(itemId: string) {
     (a: any) => a.inventory_item_id === (item as any).id
   );
 
-  return {
+  const withAvailability = {
     ...item,
     location: location || undefined,
     quantity_reserved: avail?.quantity_reserved || 0,
     quantity_available: avail?.quantity_available || (item as any).quantity_total,
   } as InventoryItemWithAvailability;
+
+  const [enriched] = await applyKitAggregates([withAvailability], availability);
+  return enriched;
 }
 
 /**
