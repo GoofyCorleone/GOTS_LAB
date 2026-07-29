@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useExternalAccountGuard } from "@/hooks/useExternalAccountGuard";
 import {
   getExperimentsByOwner,
   getActiveItemCounts,
@@ -26,6 +27,7 @@ function withCounts(
 }
 
 export default function ExperimentsPage() {
+  useExternalAccountGuard();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 

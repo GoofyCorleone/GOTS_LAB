@@ -429,6 +429,44 @@ export type Database = {
           },
         ]
       }
+      group_professors: {
+        Row: {
+          created_at: string
+          display_order: number
+          full_name: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_order: number
+          full_name: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          full_name?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_professors_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           box_label: string | null
@@ -474,17 +512,171 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "inventory_items_kit_parent_id_fkey"
+            columns: ["kit_parent_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_items_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      loan_legal_acceptance: {
+        Row: {
+          accepted_at: string
+          accepted_by: string
+          id: string
+          ip_address: unknown
+          loan_request_id: string
+          policy_version: string
+          user_agent: string | null
+        }
+        Insert: {
+          accepted_at?: string
+          accepted_by: string
+          id?: string
+          ip_address?: unknown
+          loan_request_id: string
+          policy_version?: string
+          user_agent?: string | null
+        }
+        Update: {
+          accepted_at?: string
+          accepted_by?: string
+          id?: string
+          ip_address?: unknown
+          loan_request_id?: string
+          policy_version?: string
+          user_agent?: string | null
+        }
+        Relationships: [
           {
-            foreignKeyName: "inventory_items_kit_parent_id_fkey"
-            columns: ["kit_parent_id"]
+            foreignKeyName: "loan_legal_acceptance_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_legal_acceptance_loan_request_id_fkey"
+            columns: ["loan_request_id"]
+            isOneToOne: true
+            referencedRelation: "loan_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loan_request_items: {
+        Row: {
+          id: string
+          inventory_item_id: string
+          loan_request_id: string
+          quantity: number
+        }
+        Insert: {
+          id?: string
+          inventory_item_id: string
+          loan_request_id: string
+          quantity: number
+        }
+        Update: {
+          id?: string
+          inventory_item_id?: string
+          loan_request_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_request_items_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_request_items_loan_request_id_fkey"
+            columns: ["loan_request_id"]
+            isOneToOne: false
+            referencedRelation: "loan_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loan_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          marked_lost_at: string | null
+          professor_id: string
+          purpose_description: string
+          rejection_reason: string | null
+          requested_new_usage_end: string | null
+          requester_id: string
+          returned_at: string | null
+          status: string
+          usage_end: string
+          usage_start: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          marked_lost_at?: string | null
+          professor_id: string
+          purpose_description: string
+          rejection_reason?: string | null
+          requested_new_usage_end?: string | null
+          requester_id: string
+          returned_at?: string | null
+          status?: string
+          usage_end: string
+          usage_start: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          marked_lost_at?: string | null
+          professor_id?: string
+          purpose_description?: string
+          rejection_reason?: string | null
+          requested_new_usage_end?: string | null
+          requester_id?: string
+          returned_at?: string | null
+          status?: string
+          usage_end?: string
+          usage_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_requests_professor_id_fkey"
+            columns: ["professor_id"]
+            isOneToOne: false
+            referencedRelation: "group_professors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -520,6 +712,7 @@ export type Database = {
           is_read: boolean
           payload: Json
           related_experiment_id: string | null
+          related_loan_request_id: string | null
           type: string
           user_id: string
         }
@@ -529,6 +722,7 @@ export type Database = {
           is_read?: boolean
           payload: Json
           related_experiment_id?: string | null
+          related_loan_request_id?: string | null
           type: string
           user_id: string
         }
@@ -538,6 +732,7 @@ export type Database = {
           is_read?: boolean
           payload?: Json
           related_experiment_id?: string | null
+          related_loan_request_id?: string | null
           type?: string
           user_id?: string
         }
@@ -547,6 +742,13 @@ export type Database = {
             columns: ["related_experiment_id"]
             isOneToOne: false
             referencedRelation: "experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_related_loan_request_id_fkey"
+            columns: ["related_loan_request_id"]
+            isOneToOne: false
+            referencedRelation: "loan_requests"
             referencedColumns: ["id"]
           },
           {
@@ -560,6 +762,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          access_scope: string
           avatar_url: string | null
           career: string | null
           created_at: string
@@ -567,12 +770,14 @@ export type Database = {
           first_name: string | null
           full_name: string | null
           id: string
+          institution: string | null
           last_name: string | null
-          member_status: string
+          member_status: string | null
           role: string
           updated_at: string
         }
         Insert: {
+          access_scope?: string
           avatar_url?: string | null
           career?: string | null
           created_at?: string
@@ -580,12 +785,14 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           id: string
+          institution?: string | null
           last_name?: string | null
-          member_status: string
+          member_status?: string | null
           role?: string
           updated_at?: string
         }
         Update: {
+          access_scope?: string
           avatar_url?: string | null
           career?: string | null
           created_at?: string
@@ -593,8 +800,9 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           id?: string
+          institution?: string | null
           last_name?: string | null
-          member_status?: string
+          member_status?: string | null
           role?: string
           updated_at?: string
         }
@@ -605,6 +813,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      close_overdue_loans: { Args: never; Returns: number }
       close_overdue_sessions: { Args: never; Returns: number }
       get_inventory_availability: {
         Args: never

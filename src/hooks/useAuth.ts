@@ -37,11 +37,13 @@ export function useAuth() {
     firstName: string,
     lastName: string,
     memberStatus: string,
-    career: string
+    career: string,
+    options?: { accountType?: "uis" | "external"; institution?: string }
   ) => {
     try {
       setError(null);
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const isExternal = options?.accountType === "external";
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -52,6 +54,12 @@ export function useAuth() {
             last_name: lastName.trim(),
             member_status: memberStatus,
             career,
+            ...(isExternal
+              ? {
+                  account_type: "external_requester",
+                  institution: options?.institution?.trim() || null,
+                }
+              : {}),
           },
         },
       });

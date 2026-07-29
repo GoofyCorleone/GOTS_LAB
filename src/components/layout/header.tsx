@@ -15,10 +15,12 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, signOut } = useAuth();
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [isExternal, setIsExternal] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setDisplayName(null);
+      setIsExternal(false);
       return;
     }
     let cancelled = false;
@@ -29,6 +31,7 @@ export function Header() {
         const lastName = profile.last_name?.split(" ")[0] || profile.full_name?.split(" ")[1];
         const name = [firstName, lastName].filter(Boolean).join(" ");
         setDisplayName(name || null);
+        setIsExternal(profile.access_scope === "external");
       })
       .catch((err) => console.error("Error fetching profile for header:", err));
     return () => {
@@ -85,41 +88,55 @@ export function Header() {
             >
               Inicio
             </Link>
+            {!isExternal && (
+              <Link
+                href="/inventory"
+                className="text-sm font-medium transition-colors text-foreground hover:text-gold"
+              >
+                Inventario
+              </Link>
+            )}
             <Link
-              href="/inventory"
+              href="/prestamos"
               className="text-sm font-medium transition-colors text-foreground hover:text-gold"
             >
-              Inventario
+              Préstamos
             </Link>
 
             {isAuthenticated ? (
               <>
-                <Link
-                  href="/experiments"
-                  className="text-sm font-medium transition-colors text-foreground hover:text-gold"
-                >
-                  Experimentos
-                </Link>
-                <Link
-                  href="/accompany"
-                  className="text-sm font-medium transition-colors text-foreground hover:text-gold"
-                >
-                  Acompañar
-                </Link>
+                {!isExternal && (
+                  <>
+                    <Link
+                      href="/experiments"
+                      className="text-sm font-medium transition-colors text-foreground hover:text-gold"
+                    >
+                      Experimentos
+                    </Link>
+                    <Link
+                      href="/accompany"
+                      className="text-sm font-medium transition-colors text-foreground hover:text-gold"
+                    >
+                      Acompañar
+                    </Link>
+                  </>
+                )}
                 <Link
                   href="/profile"
                   className="text-sm font-medium transition-colors text-foreground hover:text-gold"
                 >
                   Mi Perfil
                 </Link>
-                <Link
-                  href="/report"
-                  title="Reportar un error o bug"
-                  className="text-sm font-medium transition-colors flex items-center gap-1.5 text-foreground hover:text-gold"
-                >
-                  <Bug className="h-4 w-4" />
-                  Reportar error
-                </Link>
+                {!isExternal && (
+                  <Link
+                    href="/report"
+                    title="Reportar un error o bug"
+                    className="text-sm font-medium transition-colors flex items-center gap-1.5 text-foreground hover:text-gold"
+                  >
+                    <Bug className="h-4 w-4" />
+                    Reportar error
+                  </Link>
+                )}
                 <div className="flex items-center gap-3">
                   <NotificationBell />
                   <span className="text-xs text-muted-foreground">
@@ -173,30 +190,43 @@ export function Header() {
             >
               Inicio
             </Link>
+            {!isExternal && (
+              <Link
+                href="/inventory"
+                className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Inventario
+              </Link>
+            )}
             <Link
-              href="/inventory"
+              href="/prestamos"
               className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Inventario
+              Préstamos
             </Link>
 
             {isAuthenticated ? (
               <>
-                <Link
-                  href="/experiments"
-                  className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Experimentos
-                </Link>
-                <Link
-                  href="/accompany"
-                  className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Acompañar
-                </Link>
+                {!isExternal && (
+                  <>
+                    <Link
+                      href="/experiments"
+                      className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Experimentos
+                    </Link>
+                    <Link
+                      href="/accompany"
+                      className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Acompañar
+                    </Link>
+                  </>
+                )}
                 <Link
                   href="/profile"
                   className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2"
@@ -204,14 +234,16 @@ export function Header() {
                 >
                   Mi Perfil
                 </Link>
-                <Link
-                  href="/report"
-                  className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2 flex items-center gap-1.5"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Bug className="h-4 w-4" />
-                  Reportar error
-                </Link>
+                {!isExternal && (
+                  <Link
+                    href="/report"
+                    className="text-sm font-medium text-foreground hover:text-accent transition-colors py-2 flex items-center gap-1.5"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Bug className="h-4 w-4" />
+                    Reportar error
+                  </Link>
+                )}
                 <Button
                   variant="ghost"
                   className="w-full justify-start text-foreground hover:text-accent"

@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { InventoryGrid } from "@/components/inventory/InventoryGrid";
 import { InventorySearch } from "@/components/inventory/InventorySearch";
 import { useInventory } from "@/hooks/useInventory";
+import { useExternalAccountGuard } from "@/hooks/useExternalAccountGuard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getKitChildren, type InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
 
 export default function InventoryPage() {
+  useExternalAccountGuard();
+
   const {
     mode,
     items,

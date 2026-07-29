@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useExternalAccountGuard } from "@/hooks/useExternalAccountGuard";
 import { useAccompanyExperiment } from "@/hooks/useAccompanyExperiment";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import type { SearchResult } from "@/lib/supabase/queries/participants";
 import type { JoinableExperimentWithCount } from "@/hooks/useAccompanyExperiment";
 
 export default function AccompanyPage() {
+  useExternalAccountGuard();
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
 

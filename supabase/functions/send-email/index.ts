@@ -23,9 +23,22 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 interface NotificationRecord {
   id: string;
   user_id: string;
-  type: "access_request" | "access_approved" | "access_rejected" | "experiment_finished";
+  type:
+    | "access_request"
+    | "access_approved"
+    | "access_rejected"
+    | "experiment_finished"
+    | "loan_request"
+    | "loan_approved"
+    | "loan_rejected"
+    | "loan_extension_requested"
+    | "loan_extension_approved"
+    | "loan_extension_rejected"
+    | "loan_overdue"
+    | "loan_lost_stolen";
   payload: Record<string, unknown>;
   related_experiment_id: string | null;
+  related_loan_request_id: string | null;
   is_read: boolean;
   created_at: string;
 }
@@ -82,6 +95,43 @@ async function getExperimentTitle(experimentId: string | null): Promise<string> 
     .eq("id", experimentId)
     .single();
   return data?.title ?? "un experimento";
+}
+
+interface LoanSummary {
+  requesterName: string;
+  professorName: string;
+  usageStart: string;
+  usageEnd: string;
+}
+
+async function getLoanSummary(loanId: string | null): Promise<LoanSummary | null> {
+  if (!loanId) return null;
+  const { data } = await admin
+    .from("loan_requests")
+    .select(
+      "usage_start, usage_end, requester:profiles!loan_requests_requester_id_fkey(full_name), professor:group_professors(full_name)",
+    )
+    .eq("id", loanId)
+    .single();
+  if (!data) return null;
+  return {
+    requesterName: (data as any).requester?.full_name ?? "un miembro del laboratorio",
+    professorName: (data as any).professor?.full_name ?? "el profesor",
+    usageStart: (data as any).usage_start,
+    usageEnd: (data as any).usage_end,
+  };
+}
+
+function formatDateEs(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("es-CO", {
+      dateStyle: "long",
+      timeStyle: "short",
+      timeZone: "America/Bogota",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 interface EmailContent {
@@ -178,6 +228,123 @@ async function buildContent(n: NotificationRecord): Promise<EmailContent> {
         ),
       };
     }
+    case "loan_request": {
+      const loan = await getLoanSummary(n.related_loan_request_id);
+      const requesterName = escapeHtml(loan?.requesterName ?? "un miembro del laboratorio");
+      return {
+        template: "loan_request",
+        subject: "Nueva solicitud de préstamo de equipos",
+        html: wrapHtml(
+          "Nueva solicitud de préstamo",
+          `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;">
+             <strong>${requesterName}</strong> solicitó en préstamo equipo del laboratorio.
+           </p>
+           <p style="font-size:14px;line-height:1.6;margin:0;">
+             Ingresa al módulo de Préstamos en GOTS Lab para revisar el detalle y aprobar o rechazar la solicitud.
+           </p>`,
+        ),
+      };
+    }
+    case "loan_approved": {
+      const loan = await getLoanSummary(n.related_loan_request_id);
+      const professorName = escapeHtml(loan?.professorName ?? "el profesor");
+      return {
+        template: "loan_approved",
+        subject: "Tu solicitud de préstamo fue aprobada",
+        html: wrapHtml(
+          "Préstamo aprobado",
+          `<p style="font-size:14px;line-height:1.6;margin:0;">
+             <strong>${professorName}</strong> <strong style="color:#15803d;">aprobó</strong> tu solicitud de préstamo de equipo.
+             Recuerda devolver el equipo antes de la fecha límite acordada o solicitar una extensión a tiempo.
+           </p>`,
+        ),
+      };
+    }
+    case "loan_rejected":
+      return {
+        template: "loan_rejected",
+        subject: "Tu solicitud de préstamo fue rechazada",
+        html: wrapHtml(
+          "Préstamo rechazado",
+          `<p style="font-size:14px;line-height:1.6;margin:0;">
+             Tu solicitud de préstamo de equipo fue <strong style="color:#b91c1c;">rechazada</strong> por el profesor.
+           </p>`,
+        ),
+      };
+    case "loan_extension_requested": {
+      const loan = await getLoanSummary(n.related_loan_request_id);
+      const requesterName = escapeHtml(loan?.requesterName ?? "un miembro del laboratorio");
+      return {
+        template: "loan_extension_requested",
+        subject: "Solicitud de extensión de préstamo",
+        html: wrapHtml(
+          "Extensión de préstamo solicitada",
+          `<p style="font-size:14px;line-height:1.6;margin:0;">
+             <strong>${requesterName}</strong> solicitó una extensión de plazo para devolver un equipo prestado.
+             Ingresa al módulo de Préstamos para aprobar o rechazar la nueva fecha.
+           </p>`,
+        ),
+      };
+    }
+    case "loan_extension_approved": {
+      const loan = await getLoanSummary(n.related_loan_request_id);
+      const newEnd = loan ? escapeHtml(formatDateEs(loan.usageEnd)) : "la nueva fecha acordada";
+      return {
+        template: "loan_extension_approved",
+        subject: "Tu extensión de préstamo fue aprobada",
+        html: wrapHtml(
+          "Extensión aprobada",
+          `<p style="font-size:14px;line-height:1.6;margin:0;">
+             Tu solicitud de extensión fue <strong style="color:#15803d;">aprobada</strong>. Nueva fecha límite de devolución:
+             <strong>${newEnd}</strong>.
+           </p>`,
+        ),
+      };
+    }
+    case "loan_extension_rejected":
+      return {
+        template: "loan_extension_rejected",
+        subject: "Tu extensión de préstamo fue rechazada",
+        html: wrapHtml(
+          "Extensión rechazada",
+          `<p style="font-size:14px;line-height:1.6;margin:0;">
+             Tu solicitud de extensión de plazo fue <strong style="color:#b91c1c;">rechazada</strong>. La fecha límite original sigue vigente —
+             devuelve el equipo cuanto antes.
+           </p>`,
+        ),
+      };
+    case "loan_overdue":
+      return {
+        template: "loan_overdue",
+        subject: "Préstamo de equipo vencido",
+        html: wrapHtml(
+          "Préstamo vencido",
+          `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;">
+             Un préstamo de equipo de laboratorio venció y aún no ha sido devuelto ni se ha solicitado una extensión.
+           </p>
+           <p style="font-size:14px;line-height:1.6;margin:0;">
+             Si no se regulariza en un plazo de <strong>3 días</strong>, el equipo quedará registrado automáticamente como
+             <strong style="color:#b91c1c;">robado o perdido</strong>, con la responsabilidad legal que eso implica ante la
+             Universidad Industrial de Santander.
+           </p>`,
+        ),
+      };
+    case "loan_lost_stolen":
+      return {
+        template: "loan_lost_stolen",
+        subject: "Equipo registrado como robado o perdido",
+        html: wrapHtml(
+          "Equipo registrado como robado / perdido",
+          `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;">
+             El plazo de gracia para devolver un equipo prestado venció sin devolución ni solicitud de extensión.
+             El préstamo quedó registrado automáticamente como <strong style="color:#b91c1c;">robo/pérdida de equipo</strong>.
+           </p>
+           <p style="font-size:14px;line-height:1.6;margin:0;">
+             Esto implica responder legalmente ante las autoridades de la Universidad Industrial de Santander por el
+             equipo no devuelto.
+           </p>`,
+        ),
+      };
     default:
       return {
         template: "unknown",
