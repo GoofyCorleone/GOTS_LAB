@@ -149,6 +149,16 @@ export default function LoanDetailPage() {
 
   const handleRequestExtension = async () => {
     if (!loanId || !newUsageEnd) return;
+    // The DB rejects a non-extending date too, but with a raw trigger error —
+    // catch it here so the user gets a clear message before the round-trip.
+    if (loan && new Date(newUsageEnd) <= new Date(loan.usage_end)) {
+      toast({
+        title: "Fecha inválida",
+        description: "La nueva fecha debe ser posterior a la fecha límite actual.",
+        variant: "destructive",
+      });
+      return;
+    }
     setProcessing(true);
     try {
       await requestLoanExtension(loanId, new Date(newUsageEnd).toISOString());
