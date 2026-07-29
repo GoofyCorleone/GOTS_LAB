@@ -15,10 +15,16 @@ export type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row
 
 export type LoanStatus = LoanRequest["status"];
 
-/** A single item to request, before it becomes a loan_request_items row. */
+/** A single item to request, before it becomes a loan_request_items row.
+ *  `name`/`reference` are display-only (ignored on submit): the cart must be
+ *  able to label a row even when the item isn't in the currently filtered
+ *  grid — always the case for kit pieces, which are excluded from normal
+ *  listings, and also whenever the user changes the filter after adding. */
 export interface LoanCartItem {
   inventory_item_id: string;
   quantity: number;
+  name?: string;
+  reference?: string | null;
 }
 
 export interface LoanRequestItemWithDetails extends LoanRequestItem {

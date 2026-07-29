@@ -1,14 +1,35 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { asset } from "@/lib/assets";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, RotateCcw, Users } from "lucide-react";
+import { Plus, RotateCcw, Users, HandHeart } from "lucide-react";
+import { getCurrentProfile } from "@/lib/supabase/queries/experiments";
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
+  // External (non-UIS) accounts only have the loans module — showing them the
+  // experiment cards would just bounce them back here via the route guards.
+  const [isExternal, setIsExternal] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsExternal(false);
+      return;
+    }
+    let cancelled = false;
+    getCurrentProfile()
+      .then((profile: any) => {
+        if (!cancelled) setIsExternal(profile.access_scope === "external");
+      })
+      .catch((err) => console.error("Error fetching profile for home:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/10">
@@ -61,7 +82,15 @@ export default function HomePage() {
             <>
               <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">¿Qué quieres hacer?</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              <div
+                className={`grid grid-cols-1 gap-6 mx-auto ${
+                  isExternal
+                    ? "max-w-sm"
+                    : "sm:grid-cols-2 lg:grid-cols-4 max-w-6xl"
+                }`}
+              >
+                {!isExternal && (
+                  <>
                 {/* New Experiment */}
                 <Link href="/experiments/new">
                   <Card className="p-6 h-full hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-gold">
@@ -111,6 +140,27 @@ export default function HomePage() {
                         className="w-full mt-4 border-gold text-gold hover:bg-gold/10"
                       >
                         Acompañar
+                      </Button>
+                    </div>
+                  </Card>
+                </Link>
+                  </>
+                )}
+
+                {/* Request Equipment Loan */}
+                <Link href="/prestamos">
+                  <Card className="p-6 h-full hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-gold">
+                    <div className="flex flex-col items-center text-center h-full">
+                      <HandHeart className="w-12 h-12 text-gold mb-4" />
+                      <h3 className="text-lg font-bold mb-2">Solicitar Préstamo</h3>
+                      <p className="text-sm text-muted-foreground flex-1">
+                        Pide equipos de laboratorio prestados a un profesor del grupo
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="w-full mt-4 border-gold text-gold hover:bg-gold/10"
+                      >
+                        Solicitar
                       </Button>
                     </div>
                   </Card>

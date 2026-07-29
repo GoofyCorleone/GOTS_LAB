@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { InventorySearch } from "@/components/inventory/InventorySearch";
 import { InventoryGrid } from "@/components/inventory/InventoryGrid";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useInventory } from "@/hooks/useInventory";
-import type { InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
+import {
+  getKitChildren,
+  type InventoryItemWithAvailability,
+} from "@/lib/supabase/queries/inventory";
 import type { LoanCartItem } from "@/lib/supabase/queries/loans";
 
 interface LoanInventorySelectionStepProps {
@@ -25,11 +28,15 @@ interface LoanInventorySelectionStepProps {
 }
 
 /**
- * Equipment picker for a loan request. Deliberately reuses the same
- * search+grid+modal+cart pattern as the experiment wizard's
- * InventorySelectionStep, minus the "individual vs. compartido" sharing mode
- * — loans don't have that concept, the whole request belongs to one
- * requester.
+ * Equipment picker for a loan request. Reuses the same search+grid+modal+cart
+ * pattern as the experiment wizard's InventorySelectionStep, minus the
+ * "individual vs. compartido" sharing mode — loans don't have that concept,
+ * the whole request belongs to one requester.
+ *
+ * Kits (LSC01-A, LSB04-A…) are reserved piece by piece, never as a block:
+ * selecting one shows its children with their individual availability, same
+ * as AddItemDialog does for experiments. Without this a kit looked like a
+ * single indivisible item here.
  */
 export function LoanInventorySelectionStep({
   cartItems,
@@ -41,8 +48,36 @@ export function LoanInventorySelectionStep({
   const [showModal, setShowModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
+  const [kitChildren, setKitChildren] = useState<InventoryItemWithAvailability[]>([]);
+  const [kitChildrenLoading, setKitChildrenLoading] = useState(false);
+  const [kitPiece, setKitPiece] = useState<InventoryItemWithAvailability | null>(null);
+
+  // What actually gets reserved: the chosen kit piece, or the item itself.
+  const itemToReserve = kitPiece || selectedItem;
+
+  useEffect(() => {
+    if (!selectedItem) {
+      setKitChildren([]);
+      return;
+    }
+    let cancelled = false;
+    setKitChildrenLoading(true);
+    getKitChildren(selectedItem.id)
+      .then((children) => {
+        if (!cancelled) setKitChildren(children);
+      })
+      .catch((err) => console.error("Error fetching kit children:", err))
+      .finally(() => {
+        if (!cancelled) setKitChildrenLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedItem]);
+
   const handleItemClick = (item: InventoryItemWithAvailability) => {
     setSelectedItem(item);
+    setKitPiece(null);
     setShowModal(true);
     setQuantity(1);
 
@@ -52,23 +87,38 @@ export function LoanInventorySelectionStep({
     }
   };
 
-  const handleAddToCart = () => {
-    if (!selectedItem) return;
+  const handleSelectKitPiece = (child: InventoryItemWithAvailability) => {
+    setKitPiece(child);
+    const existing = cartItems.find((ci) => ci.inventory_item_id === child.id);
+    setQuantity(existing?.quantity ?? 1);
+  };
 
-    if (quantity > (selectedItem.quantity_available || 0)) {
-      alert(`No hay suficientes items disponibles. Máximo: ${selectedItem.quantity_available}`);
+  const handleAddToCart = () => {
+    if (!itemToReserve) return;
+
+    if (quantity > (itemToReserve.quantity_available || 0)) {
+      alert(`No hay suficientes items disponibles. Máximo: ${itemToReserve.quantity_available}`);
       return;
     }
 
-    onAddCartItem({ inventory_item_id: selectedItem.id, quantity });
+    onAddCartItem({
+      inventory_item_id: itemToReserve.id,
+      quantity,
+      name: itemToReserve.name,
+      reference: itemToReserve.reference,
+    });
     setShowModal(false);
     setSelectedItem(null);
+    setKitPiece(null);
   };
 
   const cartItemsWithDetails = cartItems.map((cartItem) => {
     const invItem = inventory.items.find((i) => i.id === cartItem.inventory_item_id);
     return { ...cartItem, invItem };
   });
+
+  // A kit is being browsed but no specific piece picked yet.
+  const showingKitPieces = kitChildren.length > 0 && !kitPiece;
 
   return (
     <div className="space-y-6">
@@ -78,12 +128,17 @@ export function LoanInventorySelectionStep({
           mode={inventory.mode}
           selectedLocation={inventory.selectedLocation}
           selectedCategory={inventory.selectedCategory}
+          boxLabels={inventory.boxLabels}
+          unboxedCount={inventory.unboxedCount}
+          boxLabelsLoading={inventory.boxLabelsLoading}
+          selectedBox={inventory.selectedBox}
           searchQuery={inventory.searchQuery}
           locations={inventory.locations}
           categories={inventory.categories}
           onModeChange={inventory.setMode}
           onLocationChange={inventory.setSelectedLocation}
           onCategoryChange={inventory.setSelectedCategory}
+          onBoxChange={inventory.setSelectedBox}
           onSearchChange={inventory.setSearchQuery}
         />
       </div>
@@ -111,7 +166,14 @@ export function LoanInventorySelectionStep({
                 className="flex items-start justify-between p-3 bg-white dark:bg-slate-800 rounded border border-blue-200 dark:border-blue-700"
               >
                 <div className="flex-1">
-                  <p className="font-medium text-sm">{cartItem.invItem?.name}</p>
+                  <p className="font-medium text-sm">
+                    {cartItem.name || cartItem.invItem?.name || "Equipo seleccionado"}
+                  </p>
+                  {(cartItem.reference || cartItem.invItem?.reference) && (
+                    <p className="text-xs text-muted-foreground">
+                      Ref: {cartItem.reference || cartItem.invItem?.reference}
+                    </p>
+                  )}
                   <Badge variant="outline" className="text-xs mt-1">
                     Cantidad: {cartItem.quantity}
                   </Badge>
@@ -131,63 +193,120 @@ export function LoanInventorySelectionStep({
       </div>
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedItem?.name}</DialogTitle>
+            <DialogTitle>{itemToReserve?.name}</DialogTitle>
             <DialogDescription>
-              {selectedItem?.reference && `Ref: ${selectedItem.reference}`}
+              {itemToReserve?.reference && `Ref: ${itemToReserve.reference}`}
             </DialogDescription>
           </DialogHeader>
 
-          {selectedItem && (
+          {kitChildrenLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Cargando piezas del kit...
+            </div>
+          ) : showingKitPieces ? (
             <div className="space-y-4">
-              {selectedItem.description && (
-                <p className="text-sm text-muted-foreground">{selectedItem.description}</p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                Este kit se solicita pieza por pieza. Elige la que necesitas.
+              </p>
 
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-                <p className="text-sm font-medium">
-                  Disponibilidad:{" "}
-                  <span className="text-blue-600 dark:text-blue-400">
-                    {selectedItem.quantity_available} / {selectedItem.quantity_total}
-                  </span>
-                </p>
+              <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                {kitChildren.map((child) => {
+                  const available = (child.quantity_available || 0) > 0;
+                  return (
+                    <button
+                      key={child.id}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => handleSelectKitPiece(child)}
+                      className={`w-full flex items-center justify-between text-left text-sm px-3 py-2 rounded-lg border transition-colors ${
+                        available
+                          ? "border-input hover:border-gold hover:bg-muted/50 cursor-pointer"
+                          : "border-input opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <span>
+                        {child.name}
+                        {child.reference && (
+                          <span className="text-muted-foreground"> · {child.reference}</span>
+                        )}
+                      </span>
+                      <span
+                        className={
+                          available
+                            ? "text-green-600 dark:text-green-400 text-xs font-medium flex-shrink-0"
+                            : "text-red-600 dark:text-red-400 text-xs font-medium flex-shrink-0"
+                        }
+                      >
+                        {available ? "Disponible" : "Reservada"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="loan-quantity">Cantidad *</Label>
-                <div className="flex items-center gap-2">
-                  <Button onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" size="sm">
-                    −
-                  </Button>
-                  <Input
-                    id="loan-quantity"
-                    type="number"
-                    min="1"
-                    max={selectedItem.quantity_available}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-20 text-center"
-                  />
+              <Button variant="outline" className="w-full" onClick={() => setShowModal(false)}>
+                Cancelar
+              </Button>
+            </div>
+          ) : (
+            itemToReserve && (
+              <div className="space-y-4">
+                {itemToReserve.description && (
+                  <p className="text-sm text-muted-foreground">{itemToReserve.description}</p>
+                )}
+
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm font-medium">
+                    Disponibilidad:{" "}
+                    <span className="text-blue-600 dark:text-blue-400">
+                      {itemToReserve.quantity_available} / {itemToReserve.quantity_total}
+                    </span>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="loan-quantity">Cantidad *</Label>
+                  <div className="flex items-center gap-2">
+                    <Button onClick={() => setQuantity(Math.max(1, quantity - 1))} variant="outline" size="sm">
+                      −
+                    </Button>
+                    <Input
+                      id="loan-quantity"
+                      type="number"
+                      min="1"
+                      max={itemToReserve.quantity_available}
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-20 text-center"
+                    />
+                    <Button
+                      onClick={() =>
+                        setQuantity(Math.min(itemToReserve.quantity_available || 1, quantity + 1))
+                      }
+                      variant="outline"
+                      size="sm"
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-4">
                   <Button
-                    onClick={() => setQuantity(Math.min(selectedItem.quantity_available || 1, quantity + 1))}
+                    onClick={() => (kitPiece ? setKitPiece(null) : setShowModal(false))}
                     variant="outline"
-                    size="sm"
+                    className="flex-1"
                   >
-                    +
+                    {kitPiece ? "Volver a las piezas" : "Cancelar"}
+                  </Button>
+                  <Button onClick={handleAddToCart} className="flex-1">
+                    Agregar a la solicitud
                   </Button>
                 </div>
               </div>
-
-              <div className="flex gap-2 pt-4">
-                <Button onClick={() => setShowModal(false)} variant="outline" className="flex-1">
-                  Cancelar
-                </Button>
-                <Button onClick={handleAddToCart} className="flex-1">
-                  Agregar a la solicitud
-                </Button>
-              </div>
-            </div>
+            )
           )}
         </DialogContent>
       </Dialog>
