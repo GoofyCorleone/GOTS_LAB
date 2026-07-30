@@ -3,6 +3,7 @@
 import { asset } from "@/lib/assets";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Menu, X, LogOut, Bug } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { NotificationBell } from "@/components/accompany/NotificationBell";
 import { getCurrentProfile } from "@/lib/supabase/queries/experiments";
 
 export function Header() {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -57,6 +59,7 @@ export function Header() {
   const handleSignOut = async () => {
     await signOut();
     setIsMobileMenuOpen(false);
+    router.push("/");
   };
 
   return (

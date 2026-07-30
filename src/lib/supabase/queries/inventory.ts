@@ -8,16 +8,50 @@ const supabase = createSupabaseClient<Database>(
 
 type Location = Database["public"]["Tables"]["locations"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
+export type GroupProfessor = Database["public"]["Tables"]["group_professors"]["Row"];
 
 export interface LocationWithItems extends Location {
   items_count?: number;
 }
 
+export interface LocationWithProfessor extends Location {
+  professor?: GroupProfessor;
+}
+
 export interface InventoryItemWithAvailability
   extends Omit<InventoryItem, "quantity_reserved"> {
-  location?: Location;
+  location?: LocationWithProfessor;
   quantity_reserved?: number;
   quantity_available?: number;
+}
+
+/**
+ * Every location currently belongs to exactly one professor's lab (today,
+ * only Rafael Torres has real inventory). Fetched once per query and merged
+ * onto each location so item listings/detail views can show "Inventario a
+ * cargo de: <profesor>" without a separate round-trip per item.
+ */
+async function getProfessorsById(): Promise<Map<string, GroupProfessor>> {
+  const { data, error } = await supabase.from("group_professors").select("*");
+
+  if (error) {
+    console.error("Error fetching professors:", error);
+    return new Map();
+  }
+
+  return new Map((data as GroupProfessor[]).map((p) => [p.id, p]));
+}
+
+function attachProfessor<T extends { professor_id: string | null }>(
+  location: T,
+  professorsById: Map<string, GroupProfessor>
+): T & { professor?: GroupProfessor } {
+  return {
+    ...location,
+    professor: location.professor_id
+      ? professorsById.get(location.professor_id)
+      : undefined,
+  };
 }
 
 /**
@@ -143,6 +177,11 @@ export async function getItemsByLocation(locationId: string) {
     );
   }
 
+  const professorsById = await getProfessorsById();
+  const locationWithProfessor = location
+    ? attachProfessor(location as Location, professorsById)
+    : undefined;
+
   // Merge availability data with items
   const itemsWithAvailability = (items || []).map((item: any) => {
     const avail = (availability as any[])?.find(
@@ -150,7 +189,7 @@ export async function getItemsByLocation(locationId: string) {
     );
     return {
       ...item,
-      location: location || undefined,
+      location: locationWithProfessor,
       quantity_reserved: avail?.quantity_reserved || 0,
       quantity_available: avail?.quantity_available ?? item.quantity_total,
     } as InventoryItemWithAvailability;
@@ -252,6 +291,8 @@ export async function getItemsByCategory(category: string, boxLabel?: string | n
     console.error("Error fetching availability:", availabilityError);
   }
 
+  const professorsById = await getProfessorsById();
+
   const itemsWithAvailability = (items || []).map((item: any) => {
     const location = (locations as any[])?.find((l: any) => l.id === item.location_id);
     const avail = (availability as any[])?.find(
@@ -259,7 +300,7 @@ export async function getItemsByCategory(category: string, boxLabel?: string | n
     );
     return {
       ...item,
-      location,
+      location: location ? attachProfessor(location, professorsById) : undefined,
       quantity_reserved: avail?.quantity_reserved || 0,
       quantity_available: avail?.quantity_available ?? item.quantity_total,
     } as InventoryItemWithAvailability;
@@ -329,6 +370,8 @@ export async function searchItems(query: string) {
     console.error("Error fetching availability:", availabilityError);
   }
 
+  const professorsById = await getProfessorsById();
+
   // Merge all data
   const itemsWithDetails = (items || []).map((item: any) => {
     const location = (locations as any[])?.find((l: any) => l.id === item.location_id);
@@ -338,7 +381,7 @@ export async function searchItems(query: string) {
 
     return {
       ...item,
-      location,
+      location: location ? attachProfessor(location, professorsById) : undefined,
       quantity_reserved: avail?.quantity_reserved || 0,
       quantity_available: avail?.quantity_available ?? item.quantity_total,
     } as InventoryItemWithAvailability;
@@ -388,9 +431,11 @@ export async function getItemWithAvailability(itemId: string) {
     (a: any) => a.inventory_item_id === (item as any).id
   );
 
+  const professorsById = await getProfessorsById();
+
   const withAvailability = {
     ...item,
-    location: location || undefined,
+    location: location ? attachProfessor(location as Location, professorsById) : undefined,
     quantity_reserved: avail?.quantity_reserved || 0,
     quantity_available: avail?.quantity_available ?? (item as any).quantity_total,
   } as InventoryItemWithAvailability;

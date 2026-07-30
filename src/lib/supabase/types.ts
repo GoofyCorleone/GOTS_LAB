@@ -368,6 +368,7 @@ export type Database = {
       }
       experiments: {
         Row: {
+          category: string
           created_at: string
           created_by: string
           description: string | null
@@ -383,6 +384,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category: string
           created_at?: string
           created_by: string
           description?: string | null
@@ -398,6 +400,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string
           created_at?: string
           created_by?: string
           description?: string | null
@@ -683,27 +686,41 @@ export type Database = {
       }
       locations: {
         Row: {
+          building: string | null
           created_at: string
           id: string
           label: string
           number: number
+          professor_id: string | null
           type: string
         }
         Insert: {
+          building?: string | null
           created_at?: string
           id?: string
           label: string
           number: number
+          professor_id?: string | null
           type: string
         }
         Update: {
+          building?: string | null
           created_at?: string
           id?: string
           label?: string
           number?: number
+          professor_id?: string | null
           type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "locations_professor_id_fkey"
+            columns: ["professor_id"]
+            isOneToOne: false
+            referencedRelation: "group_professors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -836,6 +853,7 @@ export type Database = {
         Args: { p_experiment_id: string }
         Returns: boolean
       }
+      is_external_account: { Args: never; Returns: boolean }
       set_item_image: {
         Args: { image_url: string; item_id: string }
         Returns: undefined

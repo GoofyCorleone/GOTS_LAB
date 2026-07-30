@@ -9,6 +9,7 @@ export interface FormData {
   title: string;
   owner_id: string;
   description: string;
+  category: string;
   companion_ids: string[];
   legalAccepted: boolean;
   fecha_inicio?: string;
@@ -31,6 +32,7 @@ export function useExperimentWizard() {
       title: "",
       owner_id: "",
       description: "",
+      category: "",
       companion_ids: [],
       legalAccepted: false,
     },
@@ -140,6 +142,10 @@ export function useExperimentWizard() {
     }
     if (!state.formData.owner_id) {
       setError("Debes seleccionar una persona a cargo");
+      return false;
+    }
+    if (!state.formData.category) {
+      setError("Debes seleccionar una categoría para el experimento");
       return false;
     }
     return true;

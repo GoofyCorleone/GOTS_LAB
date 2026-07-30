@@ -146,8 +146,15 @@ export function InventoryGrid({
                 </svg>
                 <span className="text-muted-foreground">
                   {item.location.type === "cajon" ? "Cajón" : "Armario"} {item.location.number}
+                  {item.location.building && ` · ${item.location.building}`}
                 </span>
               </div>
+            )}
+
+            {item.location?.professor && (
+              <p className="text-xs text-muted-foreground">
+                Inventario a cargo de: {item.location.professor.full_name}
+              </p>
             )}
 
             {/* Quantity */}

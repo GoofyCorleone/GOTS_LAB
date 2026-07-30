@@ -116,6 +116,10 @@ export function SummaryStep({
               <p className="text-sm text-muted-foreground">Título</p>
               <p className="font-semibold">{formData.title}</p>
             </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Categoría</p>
+              <p className="font-semibold">{formData.category}</p>
+            </div>
             {formData.description && (
               <div>
                 <p className="text-sm text-muted-foreground">Descripción</p>

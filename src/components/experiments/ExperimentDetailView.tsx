@@ -365,6 +365,9 @@ export function ExperimentDetailView() {
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-3xl font-bold">{experiment.title}</h1>
               <ExperimentStatusBadge status={experiment.status} stage={experiment.stage} />
+              {experiment.category && (
+                <Badge variant="outline">{experiment.category}</Badge>
+              )}
             </div>
 
             {isOwnerLive && experiment.status === "in_progress" && (

@@ -6,8 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { FormData } from "@/hooks/useExperimentWizard";
 import type { Profile } from "@/lib/supabase/queries/experiments";
+import { EXPERIMENT_CATEGORIES } from "@/lib/experimentCategories";
 
 interface BasicInfoStepProps {
   formData: FormData;
@@ -87,7 +95,7 @@ export function BasicInfoStep({
       description="Proporciona los detalles principales del experimento"
       onNext={handleNext}
       onPrev={onPrev}
-      nextDisabled={!formData.title.trim() || !formData.owner_id}
+      nextDisabled={!formData.title.trim() || !formData.owner_id || !formData.category}
       prevDisabled={true}
       showPrevButton={false}
       error={error || localError}
@@ -130,6 +138,28 @@ export function BasicInfoStep({
           <p className="text-xs text-muted-foreground">
             Opcional. Puedes dejarla en blanco ahora y completarla más adelante.
           </p>
+        </div>
+
+        {/* Category */}
+        <div className="space-y-2">
+          <Label htmlFor="experiment-category" className="text-base font-medium">
+            Categoría *
+          </Label>
+          <Select
+            value={formData.category || undefined}
+            onValueChange={(value) => onUpdate({ category: value })}
+          >
+            <SelectTrigger id="experiment-category" className="w-full">
+              <SelectValue placeholder="Selecciona una categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              {EXPERIMENT_CATEGORIES.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Owner — always the current user. The legal responsibility waiver

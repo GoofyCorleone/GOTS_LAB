@@ -1,15 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ArrowLeft, Loader2, User } from "lucide-react";
 import { InventoryGrid } from "@/components/inventory/InventoryGrid";
 import { InventorySearch } from "@/components/inventory/InventorySearch";
 import { useInventory } from "@/hooks/useInventory";
 import { useExternalAccountGuard } from "@/hooks/useExternalAccountGuard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getKitChildren, type InventoryItemWithAvailability } from "@/lib/supabase/queries/inventory";
+import { getGroupProfessors, type GroupProfessor } from "@/lib/supabase/queries/loans";
 
 export default function InventoryPage() {
   useExternalAccountGuard();
+
+  const [professors, setProfessors] = useState<GroupProfessor[]>([]);
+  const [professorsLoading, setProfessorsLoading] = useState(true);
+  const [selectedProfessor, setSelectedProfessor] = useState<GroupProfessor | null>(null);
+  const [underConstruction, setUnderConstruction] = useState<GroupProfessor | null>(null);
+
+  useEffect(() => {
+    getGroupProfessors()
+      .then(setProfessors)
+      .catch((err) => console.error("Error fetching professors:", err))
+      .finally(() => setProfessorsLoading(false));
+  }, []);
+
+  const handleProfessorClick = (professor: GroupProfessor) => {
+    if (!professor.is_active) {
+      setUnderConstruction(professor);
+      return;
+    }
+    setSelectedProfessor(professor);
+  };
 
   const {
     mode,
@@ -74,34 +97,95 @@ export default function InventoryPage() {
               Inventario de Equipos Ópticos
             </h1>
             <p className="text-sm sm:text-base md:text-lg text-muted-foreground">
-              Explora nuestro catálogo completo de equipos disponibles para tus experimentos
+              {selectedProfessor
+                ? `Inventario a cargo de ${selectedProfessor.full_name}`
+                : "Elige el profesor cuyo inventario quieres explorar"}
             </p>
           </div>
 
-          {/* Search Controls */}
-          <div className="mt-8">
-            <InventorySearch
-              mode={mode}
-              selectedLocation={selectedLocation}
-              selectedCategory={selectedCategory}
-              boxLabels={boxLabels}
-              unboxedCount={unboxedCount}
-              boxLabelsLoading={boxLabelsLoading}
-              selectedBox={selectedBox}
-              searchQuery={searchQuery}
-              locations={locations}
-              categories={categories}
-              onModeChange={setMode}
-              onLocationChange={setSelectedLocation}
-              onCategoryChange={setSelectedCategory}
-              onBoxChange={setSelectedBox}
-              onSearchChange={setSearchQuery}
-            />
-          </div>
+          {!selectedProfessor ? (
+            <div className="mt-8">
+              {professorsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : underConstruction ? (
+                <div className="text-center py-12 space-y-4">
+                  <p className="text-lg font-medium">Inventario en construcción</p>
+                  <p className="text-sm text-muted-foreground">
+                    Todavía no está disponible el inventario de {underConstruction.full_name}.
+                  </p>
+                  <Button variant="outline" onClick={() => setUnderConstruction(null)}>
+                    <ArrowLeft className="h-4 w-4 mr-1" /> Volver a la lista de profesores
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {professors.map((professor) => (
+                    <Card
+                      key={professor.id}
+                      className="p-4 cursor-pointer hover:shadow-lg transition-shadow hover:border-gold text-center"
+                      onClick={() => handleProfessorClick(professor)}
+                    >
+                      <div className="w-20 h-20 rounded-full bg-muted mx-auto mb-3 flex items-center justify-center overflow-hidden">
+                        {professor.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={professor.image_url}
+                            alt={professor.full_name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-8 h-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      <p className="font-medium text-sm">{professor.full_name}</p>
+                      {!professor.is_active && (
+                        <p className="text-xs text-muted-foreground mt-1">Próximamente</p>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mb-4"
+                onClick={() => setSelectedProfessor(null)}
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" /> Cambiar de profesor
+              </Button>
+
+              {/* Search Controls */}
+              <div className="mt-2">
+                <InventorySearch
+                  mode={mode}
+                  selectedLocation={selectedLocation}
+                  selectedCategory={selectedCategory}
+                  boxLabels={boxLabels}
+                  unboxedCount={unboxedCount}
+                  boxLabelsLoading={boxLabelsLoading}
+                  selectedBox={selectedBox}
+                  searchQuery={searchQuery}
+                  locations={locations}
+                  categories={categories}
+                  onModeChange={setMode}
+                  onLocationChange={setSelectedLocation}
+                  onCategoryChange={setSelectedCategory}
+                  onBoxChange={setSelectedBox}
+                  onSearchChange={setSearchQuery}
+                />
+              </div>
+            </>
+          )}
         </div>
       </section>
 
       {/* Main Content */}
+      {selectedProfessor && (
       <section className="container mx-auto max-w-6xl px-4 py-12">
         {/* Error State */}
         {error && (
@@ -139,6 +223,7 @@ export default function InventoryPage() {
           onViewDetails={handleViewDetails}
         />
       </section>
+      )}
 
       {/* Details Modal */}
       {selectedItem && (
@@ -248,6 +333,15 @@ export default function InventoryPage() {
                 </div>
               )}
 
+              {selectedItem.location?.professor && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">
+                    Inventario a cargo de
+                  </p>
+                  <p className="text-sm">{selectedItem.location.professor.full_name}</p>
+                </div>
+              )}
+
               {selectedItem.location && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-1">
@@ -256,6 +350,7 @@ export default function InventoryPage() {
                   <p className="text-sm">
                     {selectedItem.location.type === "cajon" ? "Cajón" : "Armario"}{" "}
                     {selectedItem.location.number} - {selectedItem.location.label}
+                    {selectedItem.location.building && ` · ${selectedItem.location.building}`}
                   </p>
                 </div>
               )}

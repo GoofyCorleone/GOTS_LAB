@@ -62,6 +62,11 @@ export function ExperimentCard({
           <CardTitle className="text-lg line-clamp-2">{experiment.title}</CardTitle>
           <ExperimentStatusBadge status={experiment.status} stage={experiment.stage} />
         </div>
+        {experiment.category && (
+          <Badge variant="outline" className="w-fit text-xs mt-1">
+            {experiment.category}
+          </Badge>
+        )}
         {variant === "public" ? (
           owner && (
             <CardDescription className="flex items-center gap-1.5 mt-1">

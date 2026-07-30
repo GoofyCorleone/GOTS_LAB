@@ -286,6 +286,7 @@ export async function updateProfileName(
 export async function createExperiment(data: {
   title: string;
   owner_id: string;
+  category: string;
   description?: string;
   fecha_inicio?: string;
   fecha_fin_tentativa?: string;
@@ -303,6 +304,7 @@ export async function createExperiment(data: {
     .insert({
       title: data.title,
       owner_id: data.owner_id,
+      category: data.category,
       description: data.description || null,
       created_by: user.id,
       status: "draft",
